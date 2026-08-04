@@ -28,10 +28,48 @@
 
 > 没装 Python？百度“Windows 安装 Python”，一步步装好即可（勾选 “Add to PATH”）。
 
-### 方式 B：部署到网上（电脑手机都能用）
-1. 注册免费 GitHub 账号（设置页有图文引导）。
-2. 把整个文件夹上传到一个仓库，开启 GitHub Pages。
-3. 手机浏览器打开你的 Pages 地址 → 点“添加到主屏幕”，就能像 App 一样用。
+### 方式 B：部署到 GitHub Pages（电脑手机都能用，免费）
+
+> 部署上去的是**网站代码**（已帮你准备好，本地仓库已建好）。你的笔记/任务在上传前会被密码加密，所以即使仓库公开也看不到明文。
+
+**第 1 步：注册 GitHub（免费）**
+- 打开 https://github.com ，点 Sign up，用邮箱注册一个账号。
+
+**第 2 步：新建一个仓库（放网站代码）**
+- 登录后点右上角「+」→ New repository。
+- Repository name 填：`workbench`（或你喜欢的英文名，只能英文/数字/横线）。
+- 选 **Public**（免费账号只能公开仓库；你的数据是加密的，安全）。
+- 不要勾 “Add a README”，其它默认，点 Create repository。
+- 建好后页面会显示一个网址，形如 `https://github.com/你的用户名/workbench.git`，先留着。
+
+**第 3 步：生成访问令牌（PAT，用来让你/我推送代码）**
+- 打开 https://github.com/settings/tokens （或 头像 → Settings → Developer settings → Personal access tokens → Tokens (classic)）。
+- 点 Generate new token (classic)，Note 填 `workbench-deploy`，Expiration 选 `No expiration`（或 90 天）。
+- 勾选 `repo`（整项打勾即可）。
+- 最下面点 Generate token。
+- **重要：生成后那串 `ghp_...` 只显示一次，立刻复制保存好。**
+
+**第 4 步：把代码推上去（二选一）**
+
+- 方式 1（让我帮你推）：把第 3 步复制的 `ghp_...` 令牌发给我，我执行推送并帮你开启 Pages。令牌仅用于这一次推送命令，不会写入任何文件。
+- 方式 2（自己推，用 GitHub Desktop 最省事）：
+  1. 下载安装 GitHub Desktop（https://desktop.github.com）。
+  2. File → Add Local Repository，选中本文件夹。
+  3. 左上角 Publish repository，Remote 选你刚建的 `workbench`，点 Publish。
+  4. 之后每次改了东西，写个说明点 Push 即可。
+
+**第 5 步：开启 Pages**
+- 在 GitHub 打开你的仓库 → Settings → Pages。
+- Source 选 **Deploy from a branch**，Branch 选 **main**，文件夹选 **/ (root)**，点 Save。
+- 等 1～2 分钟，页面会显示你的网址：`https://你的用户名.github.io/workbench/`。
+- 电脑浏览器打开它，设密码即可用。
+
+**第 6 步：手机上像 App 一样用**
+- 手机浏览器（Safari / Chrome）打开上面的 Pages 网址。
+- 点浏览器「分享 / ⋯」菜单 → **「添加到主屏幕」** → 起个名字（如“工作台”）。
+- 桌面就多了一个图标，点开是全屏、断网也能开（PWA）。
+
+> 电脑和手机要**数据互通**，请再按下面「四、数据同步」在设置页配置同一个 GitHub 同步（同一个账号下的另一个私有仓库存加密数据）。只部署不配同步也能用，只是各自设备数据独立。
 
 ---
 
