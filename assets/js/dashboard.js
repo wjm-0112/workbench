@@ -1,126 +1,117 @@
-let weekChart = null, statusChart = null;
+/* ===== 看板（配置驱动：统计卡 + 趋势 + 占比 + 习惯） ===== */
+(async function () {
+  const esc = PBUI.esc;
+  const save = () => PB.save();
+  let charts = [];
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 11) return '早上好呀';
-  if (h < 18) return '下午好呀';
-  return '晚上好呀';
-}
-function last7() {
-  const arr = [], d = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const x = new Date(d); x.setDate(d.getDate() - i);
-    arr.push(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`);
-  }
-  return arr;
-}
-function streak(set) {
-  let s = 0; const d = new Date();
-  for (;;) {
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    if (set.has(key)) { s++; d.setDate(d.getDate() - 1); } else break;
-  }
-  return s;
-}
-
-function renderDashboard() {
-  const d = PB.getData();
-  const today = PBUI.todayStr();
-  document.getElementById('greet').textContent = greeting();
-
-  const notDone = d.tasks.filter(t => t.status !== 'done');
-  const dueToday = notDone.filter(t => t.due === today);
-  const overdue = notDone.filter(t => t.due && t.due < today);
-  const maxStreak = Math.max(0, ...d.habits.map(h => streak(new Set(h.checkins))));
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="label">待办总数</div><div class="num">${notDone.length}</div></div>
-    <div class="stat"><div class="label">今日到期</div><div class="num">${dueToday.length}</div></div>
-    <div class="stat"><div class="label">最长连续打卡</div><div class="num">${maxStreak} 天</div></div>`;
-
-  const showTasks = notDone.slice().sort((a, b) => new Date(a.due || '9999') - new Date(b.due || '9999')).slice(0, 6);
-  const tl = document.getElementById('today-list');
-  if (!showTasks.length) tl.innerHTML = PBUI.emptyHint('今天没有待办，真棒！');
-  else tl.innerHTML = showTasks.map(t => {
-    const ov = t.due && t.due < today;
-    const dot = t.status === 'doing' ? 'dot-doing' : 'dot-todo';
-    return `<div class="item" style="margin-bottom:8px"><div class="row"><span class="title">${PBUI.esc(t.title)}</span><span class="dot ${dot}"></span></div>${t.due ? `<div class="meta" style="${ov ? 'color:var(--accent)' : ''}">${PBUI.esc(t.due)}${ov ? ' (逾期)' : ''}</div>` : ''}</div>`;
-  }).join('');
-
-  const rn = d.notes.slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)).slice(0, 6);
-  const nl = document.getElementById('notes-list');
-  if (!rn.length) nl.innerHTML = PBUI.emptyHint('还没有笔记');
-  else nl.innerHTML = rn.map(n => `<div class="item" style="margin-bottom:8px"><div class="row"><span class="title">${PBUI.esc(n.title)}</span><span class="meta">${PBUI.fmtDate(n.updatedAt)}</span></div></div>`).join('');
-
-  const hl = document.getElementById('habit-list');
-  if (!d.habits.length) hl.innerHTML = PBUI.emptyHint('添加个习惯开始打卡吧');
-  else {
-    const days = last7();
-    hl.innerHTML = d.habits.map(h => {
-      const set = new Set(h.checkins);
-      const cells = days.map(day => `<div class="habit-cell ${set.has(day) ? 'on' : ''}" data-hid="${h.id}" data-day="${day}">${new Date(day).getDate()}</div>`).join('');
-      return `<div class="habit-row"><div><b>${PBUI.esc(h.name)}</b> <span class="muted">· 连续 ${streak(set)} 天</span></div><button class="btn btn-sm btn-accent" data-hdel="${h.id}">删</button></div><div class="habit-grid" style="margin-bottom:10px">${cells}</div>`;
-    }).join('');
-    hl.querySelectorAll('.habit-cell').forEach(c => c.onclick = () => toggleHabit(c.dataset.hid, c.dataset.day));
-    hl.querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => delHabit(b.dataset.hdel));
-  }
-
-  renderCharts(d, last7());
-}
-
-function toggleHabit(id, day) {
-  const d = PB.getData();
-  const h = d.habits.find(x => x.id === id); if (!h) return;
-  const i = h.checkins.indexOf(day);
-  if (i >= 0) h.checkins.splice(i, 1); else h.checkins.push(day);
-  PBUI.touch(h); PB.save(); renderDashboard();
-}
-function delHabit(id) {
-  if (!confirm('删除这个习惯？')) return;
-  const d = PB.getData();
-  d.habits = d.habits.filter(x => x.id !== id);
-  PB.save(); renderDashboard();
-}
-function addHabit() {
-  PBUI.openModal(`<h2>添加习惯</h2><div class="field"><label>习惯名称</label><input type="text" id="hname" placeholder="如：喝水 / 读书 / 运动"></div><div class="toolbar"><button class="btn btn-primary" id="hok">添加</button><button class="btn btn-ghost" id="hcancel">取消</button></div>`);
-  document.getElementById('hcancel').onclick = PBUI.closeModal;
-  document.getElementById('hok').onclick = () => {
-    const name = document.getElementById('hname').value.trim();
-    if (!name) { PBUI.toast('名称不能为空'); return; }
-    const d = PB.getData();
-    d.habits.push(PBUI.touch({ id: PB.uid(), name, checkins: [] }));
-    PB.save(); PBUI.closeModal(); renderDashboard(); PBUI.toast('已添加');
-  };
-}
-
-function renderCharts(d, days) {
-  if (!window.Chart) return;
-  const week = days.map(day => d.tasks.filter(t => t.status === 'done' && (t.updatedAt || '').slice(0, 10) === day).length);
-  const ctxW = document.getElementById('chart-week');
-  if (weekChart) weekChart.destroy();
-  weekChart = new Chart(ctxW, {
-    type: 'bar',
-    data: { labels: days.map(x => x.slice(5)), datasets: [{ label: '完成数', data: week, backgroundColor: '#4DA3FF', borderColor: '#3A3A3A', borderWidth: 2, borderRadius: 6 }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-  });
-  const c = {
-    todo: d.tasks.filter(t => t.status === 'todo').length,
-    doing: d.tasks.filter(t => t.status === 'doing').length,
-    done: d.tasks.filter(t => t.status === 'done').length
-  };
-  const ctxS = document.getElementById('chart-status');
-  if (statusChart) statusChart.destroy();
-  statusChart = new Chart(ctxS, {
-    type: 'doughnut',
-    data: { labels: ['待办', '进行中', '完成'], datasets: [{ data: [c.todo, c.doing, c.done], backgroundColor: ['#4DA3FF', '#FFD23F', '#5CCB5C'], borderColor: '#3A3A3A', borderWidth: 2 }] },
-    options: { plugins: { legend: { position: 'bottom' } } }
-  });
-}
-
-window.addEventListener('DOMContentLoaded', async () => {
+  if (!await PBUI.ensureUnlocked()) return;
+  PBUI.applyTheme(PB.getConfig().theme);
   PBUI.renderChrome('dashboard');
-  const ok = await PBUI.ensureUnlocked();
-  if (!ok) return;
   await PBUI.afterUnlockSync();
-  document.getElementById('add-habit').onclick = addHabit;
-  renderDashboard();
-});
+
+  const data = () => PB.getData();
+  const cfg = () => PB.getConfig();
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#1E3A8A';
+  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  function dayDiff(a, b) { return Math.round((new Date(a) - new Date(b)) / 86400000); }
+
+  function computeStats() {
+    const tasks = data().tasks;
+    const t = todayStr();
+    const pend = tasks.filter(x => x.status !== 'done').length;
+    const due = tasks.filter(x => x.status !== 'done' && x.due === t).length;
+    const over = tasks.filter(x => x.status !== 'done' && x.due && x.due < t).length;
+    let streak = 0;
+    (data().habits || []).forEach(h => { const s = curStreak(h.checks || []); if (s > streak) streak = s; });
+    return { pending: pend, dueToday: due, overdue: over, habitStreak: streak };
+  }
+
+  function curStreak(checks) {
+    const set = new Set(checks);
+    let n = 0; const d = new Date();
+    while (set.has(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+
+  function last7() {
+    const labels = [], counts = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+      counts.push(data().tasks.filter(x => x.status === 'done' && (x.updatedAt || '').slice(0, 10) === ds).length);
+    }
+    return { labels, counts };
+  }
+
+  function destroyCharts() { charts.forEach(c => { try { c.destroy(); } catch (e) {} }); charts = []; }
+
+  function render() {
+    destroyCharts();
+    const c = cfg();
+    const sc = computeStats();
+    const cardDefs = [
+      ['pending', '待办任务', sc.pending],
+      ['dueToday', '今日到期', sc.dueToday],
+      ['overdue', '已逾期', sc.overdue],
+      ['habitStreak', '习惯连续(天)', sc.habitStreak]
+    ];
+    const show = c.dashboard.showCards || [];
+    const content = document.getElementById('content');
+    content.innerHTML = `
+      <div class="page-head"><h1>${esc(c.siteName || '我的工作台')} · 概览</h1><span class="muted-note">${esc(new Date().toLocaleDateString('zh-CN'))}</span></div>
+      <div class="grid-4">
+        ${cardDefs.filter(([k]) => show.includes(k)).map(([, label, num]) => `
+          <div class="stat"><div class="label">${label}</div><div class="num">${num}</div></div>`).join('')}
+      </div>
+      ${(c.dashboard.showWeekTrend !== false) ? `
+      <div class="card"><h3>近 7 日完成任务趋势</h3><div style="max-width:640px;"><canvas id="trend" height="120"></canvas></div>
+        ${typeof Chart === 'undefined' ? '<p class="muted-note">（图表库需联网加载，当前离线未显示）</p>' : ''}</div>` : ''}
+      ${(c.dashboard.showCategoryBreakdown !== false) ? `
+      <div class="card"><h3>任务状态分布</h3><div style="max-width:360px;"><canvas id="cat" height="200"></canvas></div>
+        ${typeof Chart === 'undefined' ? '<p class="muted-note">（图表库需联网加载，当前离线未显示）</p>' : ''}</div>` : ''}
+      <div class="card"><h3>习惯打卡</h3><div id="habits">${habitsHTML()}</div></div>
+    `;
+    if (typeof Chart !== 'undefined') {
+      if (c.dashboard.showWeekTrend !== false) {
+        const t = last7();
+        charts.push(new Chart(document.getElementById('trend'), {
+          type: 'line', data: { labels: t.labels, datasets: [{ label: '完成数', data: t.counts, borderColor: cssVar('--primary'), backgroundColor: cssVar('--primary') + '22', fill: true, tension: .3 }] },
+          options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: cssVar('--muted') } }, y: { ticks: { color: cssVar('--muted') }, beginAtZero: true } } } }
+        ));
+      }
+      if (c.dashboard.showCategoryBreakdown !== false) {
+        const tasks = data().tasks;
+        const ds = { todo: tasks.filter(x => x.status === 'todo').length, doing: tasks.filter(x => x.status === 'doing').length, done: tasks.filter(x => x.status === 'done').length };
+        charts.push(new Chart(document.getElementById('cat'), {
+          type: 'doughnut', data: { labels: ['待办', '进行中', '已完成'], datasets: [{ data: [ds.todo, ds.doing, ds.done], backgroundColor: [cssVar('--primary'), cssVar('--warn'), cssVar('--success')] }] },
+          options: { plugins: { legend: { position: 'bottom', labels: { color: cssVar('--ink') } } } } }
+        ));
+      }
+    }
+    bindHabits();
+  }
+
+  function habitsHTML() {
+    const habits = data().habits || [];
+    if (!habits.length) return PBUI.emptyHint('还没有习惯项，去「我的 → 默认预设 → 习惯打卡项」添加');
+    const t = todayStr();
+    return habits.map(h => {
+      h.checks = h.checks || [];
+      const cells = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; cells.push(`<div class="habit-cell ${h.checks.includes(ds) ? 'on' : ''}" data-hid="${h.id}" data-d="${ds}">${d.getDate()}</div>`); }
+      return `<div class="habit-row"><span>${esc(h.name)}</span><span class="muted-note">连续 ${curStreak(h.checks)} 天</span></div><div class="habit-grid">${cells.join('')}</div>`;
+    }).join('');
+  }
+
+  function bindHabits() {
+    document.querySelectorAll('.habit-cell').forEach(cell => cell.onclick = () => {
+      const h = (data().habits || []).find(x => x.id === cell.dataset.hid); if (!h) return;
+      h.checks = h.checks || []; const d = cell.dataset.d;
+      const i = h.checks.indexOf(d); if (i >= 0) h.checks.splice(i, 1); else h.checks.push(d);
+      PB.touch(h); save(); render();
+    });
+  }
+
+  render();
+})();

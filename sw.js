@@ -1,9 +1,9 @@
-const CACHE = 'pwb-v2';
+const CACHE = 'pwb-v3';
 const ASSETS = [
-  './', './index.html', './tasks.html', './notes.html', './snippets.html', './settings.html',
+  './', './index.html', './tasks.html', './notes.html', './snippets.html', './profile.html',
   './assets/css/style.css',
   './assets/js/store.js', './assets/js/common.js', './assets/js/tasks.js',
-  './assets/js/notes.js', './assets/js/snippets.js', './assets/js/dashboard.js', './assets/js/settings.js',
+  './assets/js/notes.js', './assets/js/snippets.js', './assets/js/dashboard.js', './assets/js/profile.js',
   './manifest.webmanifest', './icon.svg'
 ];
 
@@ -22,7 +22,7 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   // 跨域请求（如 GitHub API）不走 SW 缓存，直接走网络，避免把 HTML 当 JSON 返回
   if (url.origin !== self.location.origin) return;
-  // network-first：优先取最新文件（修复后能立即生效），离线时回退缓存
+  // network-first：优先取最新文件（修改后能立即生效），离线时回退缓存
   e.respondWith(
     fetch(e.request).then(resp => {
       const cp = resp.clone();
