@@ -1,23 +1,94 @@
 /* ===== 个人工作台 · 数据层 =====
- * 本地存储 + AES-GCM/PBKDF2 加密 + GitHub 同步 + 导出导入
+ * 本地存储 + AES-GCM/PBKDF2 加密 + GitHub 同步 + 导出导入 + 配置
  * 暴露全局对象 PB
  */
 const PB = (function () {
   const STORAGE_KEY = 'pwb_data_v1';
   const SESSION_KEY = 'pwb_session_v1';
   const KEY_SESSION_KEY = 'pwb_keysession_v1';
-  const SETTINGS_KEY = 'pwb_settings_v1';
+  const SETTINGS_KEY = 'pwb_settings_v1';          // 旧明文同步键（迁移后删除）
   const SALT = new TextEncoder().encode('pwb-crayon-salt-v1');
 
   let cryptoKey = null;   // 当前解锁的 CryptoKey
   let data = null;        // 解密后的数据对象
   let saveTimer = null;
+  let syncTimer = null;
 
   /* ---------- 工具 ---------- */
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function nowISO() { return new Date().toISOString(); }
   function emptyData() {
-    return { tasks: [], notes: [], snippets: [], habits: [], meta: { version: 1, lastSyncAt: null } };
+    return { tasks: [], notes: [], snippets: [], habits: [], config: null, meta: { version: 1, lastSyncAt: null } };
+  }
+
+  /* ---------- 默认配置（双主题 / 模块 / 预设 / 看板 / 同步 / 个人） ---------- */
+  const DEFAULT_CONFIG = {
+    siteName: '我的工作台',
+    theme: {
+      mode: 'light',
+      light: { primary:'#1E3A8A', accent:'#E5484D', bg:'#F5F7FA', surface:'#FFFFFF', ink:'#1F2329', muted:'#8A9099', success:'#2BA471', warn:'#F0A020', purple:'#7C5CFF', border:'#E5E7EB', radius:'8px', radiusLg:'14px' },
+      dark:  { primary:'#60A5FA', accent:'#F87171', bg:'#0F172A', surface:'#1E293B', ink:'#E5E9F0', muted:'#94A3B8', success:'#34D399', warn:'#FBBF24', purple:'#A78BFA', border:'#334155', radius:'8px', radiusLg:'14px' },
+      fontTitle: "system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif",
+      fontBody: "system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif"
+    },
+    modules: [
+      { key:'dashboard', label:'看板', enabled:true, order:1, type:'page', icon:'grid', core:true },
+      { key:'tasks',    label:'任务', enabled:true, order:2, type:'page', icon:'check', core:true },
+      { key:'notes',    label:'笔记', enabled:true, order:3, type:'page', icon:'note', core:true },
+      { key:'snippets', label:'知识库', enabled:true, order:4, type:'page', icon:'book', core:true },
+      { key:'profile',  label:'我的', enabled:true, order:5, type:'page', icon:'user', core:true }
+    ],
+    defaults: {
+      taskTags: ['工作','生活','学习'],
+      habitItems: ['喝水','读书','运动'],
+      kbCategories: ['通用','前端','后端','API','命令','SQL']
+    },
+    dashboard: { showCards:['pending','dueToday','overdue','habitStreak'], showWeekTrend:true, showCategoryBreakdown:true },
+    sync: { enabled:false, user:'', repo:'', token:'', path:'data.json' },
+    profile: { userName:'我', role:'管理员' }
+  };
+
+  /* ---------- 配置合并 / 迁移 ---------- */
+  function deepMergeConfig(target) {
+    target = target || {};
+    const out = Object.assign({}, DEFAULT_CONFIG, target);
+    out.theme = Object.assign({}, DEFAULT_CONFIG.theme, target.theme || {});
+    out.theme.light = Object.assign({}, DEFAULT_CONFIG.theme.light, (target.theme && target.theme.light) || {});
+    out.theme.dark  = Object.assign({}, DEFAULT_CONFIG.theme.dark,  (target.theme && target.theme.dark)  || {});
+    out.defaults  = Object.assign({}, DEFAULT_CONFIG.defaults, target.defaults || {});
+    out.dashboard = Object.assign({}, DEFAULT_CONFIG.dashboard, target.dashboard || {});
+    out.sync      = Object.assign({}, DEFAULT_CONFIG.sync, target.sync || {});
+    out.profile   = Object.assign({}, DEFAULT_CONFIG.profile, target.profile || {});
+    out.siteName  = target.siteName || DEFAULT_CONFIG.siteName;
+    out.modules   = (target.modules && Array.isArray(target.modules) && target.modules.length)
+      ? target.modules
+      : DEFAULT_CONFIG.modules.map(m => Object.assign({}, m));
+    return out;
+  }
+  // 把解密后的旧数据迁移到最新结构：旧 snippets(code→body)、旧明文同步键迁入加密 config
+  function migrateConfig(d) {
+    if (!d) d = emptyData();
+    d.tasks = d.tasks || []; d.notes = d.notes || []; d.snippets = d.snippets || []; d.habits = d.habits || [];
+    d.meta = d.meta || { version: 1, lastSyncAt: null };
+    // 旧「速查」{title,code,lang,tags} → 知识库 {title,summary,body,category,tags}
+    d.snippets.forEach(s => {
+      if (s.code != null && s.body == null) s.body = s.code;
+      if (s.summary == null) s.summary = '';
+      if (s.category == null) s.category = '通用';
+      delete s.code; delete s.lang;
+    });
+    // 旧明文同步键 → 加密 config.sync
+    d.config = deepMergeConfig(d.config);
+    let legacy = null;
+    try { legacy = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) { legacy = null; }
+    if (legacy && legacy.token) {
+      d.config.sync = Object.assign({}, d.config.sync, {
+        enabled: !!legacy.enabled, user: legacy.user || '', repo: legacy.repo || '',
+        token: legacy.token || '', path: legacy.path || 'data.json'
+      });
+      try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+    }
+    return d;
   }
 
   /* ---------- 加密 ---------- */
@@ -46,8 +117,6 @@ const PB = (function () {
   }
 
   /* ---------- 会话内密钥持久化（仅 sessionStorage，关标签页即清） ---------- */
-  // 跨页面整页刷新时，内存里的 CryptoKey 会丢失；把其 JWK 存进 sessionStorage，
-  // 下次进页面用 restore() 导回，避免「encrypt 参数不是 CryptoKey」错误。
   async function storeKeySession() {
     try { sessionStorage.setItem(KEY_SESSION_KEY, JSON.stringify(await crypto.subtle.exportKey('jwk', cryptoKey))); } catch (e) {}
   }
@@ -57,7 +126,7 @@ const PB = (function () {
       const ds = sessionStorage.getItem(SESSION_KEY);
       if (!kj || !ds) return false;
       cryptoKey = await crypto.subtle.importKey('jwk', JSON.parse(kj), { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-      data = JSON.parse(ds);
+      data = migrateConfig(JSON.parse(ds));
       return true;
     } catch (e) { return false; }
   }
@@ -72,30 +141,23 @@ const PB = (function () {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
     scheduleSync();
   }
-  function save() {        // 防抖保存
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(persist, 300);
-  }
-  function saveNow() {     // 立即保存（导入/关键操作后）
-    clearTimeout(saveTimer);
-    return persist();
-  }
+  function save() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 300); }
+  function saveNow() { clearTimeout(saveTimer); return persist(); }
 
   /* ---------- 解锁 ---------- */
-  // 返回 'first'（首次设置密码）| 'ok' | 'wrong'
   async function unlock(password) {
     const blob = localStorage.getItem(STORAGE_KEY);
     if (!blob) {
       cryptoKey = await deriveKey(password);
       await storeKeySession();
-      data = emptyData();
+      data = migrateConfig(emptyData());
       await persist();
       return 'first';
     }
     try {
       cryptoKey = await deriveKey(password);
       await storeKeySession();
-      data = await decryptObj(blob, cryptoKey);
+      data = migrateConfig(await decryptObj(blob, cryptoKey));
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
       return 'ok';
     } catch (e) {
@@ -103,23 +165,24 @@ const PB = (function () {
       return 'wrong';
     }
   }
-  // 仅当内存里同时存在密钥与数据才算解锁；data 的恢复必须伴随密钥恢复（由 restore() 完成），
-  // 不要在此自行从 sessionStorage 恢复 data，否则可能出现“已解锁但密钥为 null”而再次触发 encrypt 报错。
+  // 仅当内存里同时存在密钥与数据才算解锁；data 的恢复必须伴随密钥恢复（由 restore() 完成）。
   function isUnlocked() { return !!(cryptoKey && data); }
-  function lock() { cryptoKey = null; data = null; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(KEY_SESSION_KEY); }
+  function lock() {
+    cryptoKey = null; data = null;
+    sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(KEY_SESSION_KEY);
+  }
 
   /* ---------- 数据访问 ---------- */
   function getData() { return data || emptyData(); }
   function touch(obj) { obj.updatedAt = nowISO(); return obj; }
 
-  /* ---------- 设置（GitHub 同步） ---------- */
-  function getSettings() {
-    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || { enabled: false }; }
-    catch (e) { return { enabled: false }; }
-  }
-  function setSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+  /* ---------- 配置访问 ---------- */
+  function getConfig() { return (data && data.config) ? data.config : DEFAULT_CONFIG; }
+  function setConfig(cfg) { if (!data) return; data.config = cfg; save(); }
+  function updateConfig(fn) { const c = getConfig(); fn(c); setConfig(c); }
 
-  /* ---------- GitHub 同步 ---------- */
+  /* ---------- GitHub 同步（凭据来自加密 config.sync） ---------- */
+  function syncSettings() { return ((data && data.config && data.config.sync) || DEFAULT_CONFIG.sync); }
   async function githubGet(settings) {
     const path = settings.path || 'data.json';
     const url = `https://api.github.com/repos/${settings.user}/${settings.repo}/contents/${path}`;
@@ -142,7 +205,7 @@ const PB = (function () {
     data.meta = Object.assign({}, data.meta, remoteData.meta || {});
   }
   async function syncPull() {
-    const s = getSettings();
+    const s = syncSettings();
     if (!s.enabled || !s.token || !s.user || !s.repo) return { ok: false, reason: 'disabled' };
     if (!cryptoKey) return { ok: false, reason: '未解锁，请刷新页面重新输入密码' };
     try {
@@ -155,7 +218,7 @@ const PB = (function () {
     } catch (e) { return { ok: false, reason: e.message }; }
   }
   async function syncPush() {
-    const s = getSettings();
+    const s = syncSettings();
     if (!s.enabled || !s.token || !s.user || !s.repo) return { ok: false, reason: 'disabled' };
     if (!cryptoKey) return { ok: false, reason: '未解锁，请刷新页面重新输入密码' };
     try {
@@ -176,13 +239,12 @@ const PB = (function () {
     } catch (e) { return { ok: false, reason: e.message }; }
   }
   function scheduleSync() { clearTimeout(syncTimer); syncTimer = setTimeout(() => { syncPush().then(() => {}); }, 1500); }
-  let syncTimer = null;
 
   /* ---------- 导出 / 导入 ---------- */
   function exportJSON() { return JSON.stringify(data, null, 2); }
   async function importJSON(text) {
     const obj = JSON.parse(text);
-    data = Object.assign(emptyData(), obj);
+    data = migrateConfig(Object.assign(emptyData(), obj));
     await saveNow();
   }
 
@@ -199,9 +261,9 @@ const PB = (function () {
 
   return {
     uid, nowISO, emptyData, touch,
-    unlock, isUnlocked, lock, getData, restore,
+    unlock, isUnlocked, lock, getData, restore, migrateConfig,
     save, saveNow, hasLocal,
-    getSettings, setSettings,
+    getConfig, setConfig, updateConfig,
     syncPull, syncPush,
     exportJSON, importJSON, changePassword
   };
