@@ -38,7 +38,19 @@
 ### 方式 B：部署上线（电脑手机都能用）
 把站点静态文件（根目录的 html + assets + manifest + sw.js）托管到任意静态服务（GitHub Pages / Vercel / Nginx 等）。手机浏览器打开地址 → 「添加到主屏幕」即可像 App 使用（PWA，断网也能开）。
 
-> 电脑和手机要**数据互通**，请在「我的」页登录**同一账号**并开启云同步。只部署不配同步也能用，只是各自设备数据独立。
+> ⚠️ **手机端能用哪些功能（部署前必读）**
+> - **本地核心（任务 / 笔记 / 知识库 / 看板 / 我的配置）**：纯静态即可，数据加密存在手机浏览器本地，**完全可用**，离线也行。
+> - **云同步 / 内容 / 商城**：依赖后端接口（当前写死**同源** `/api/*`）。GitHub Pages 这类**纯静态托管跑不了 Node 后端**，这三项在纯静态部署下不可用。
+> - 若要手机端也能云同步 / 看内容 / 下单：① 把 `server/` 部署到能跑 Node 的公共主机；② 把 C 端接口基地址从「同源」改为该后端地址（`store.js` 里的 `/api` 前缀需参数化，属后续优化，暂未做）。
+
+#### 推送到 GitHub 并开启 Pages（示例）
+1. 在本机终端进入项目目录，先推送（本仓库已配好 `origin`）：
+   ```bash
+   git push -u origin master
+   ```
+2. 打开 `https://github.com/wjm-0112/workbench` → **Settings → Pages** → Source 选 **Deploy from a branch** → Branch 选 **master** / 目录 **/ (root)** → Save。
+3. 约 1 分钟后，手机浏览器打开 `https://wjm-0112.github.io/workbench/` → 菜单「添加到主屏幕」即可当 App 用。
+   （仓库已含 `.nojekyll`，确保带 `_` 的文件与 SPA 不被 Jekyll 忽略。）
 
 ---
 
@@ -71,7 +83,7 @@ npm install        # 安装 express jsonwebtoken bcryptjs（仅首次）
 npm start          # 监听 http://localhost:3000
 ```
 - 首次启动自动播种：管理员 `admin / admin123`、默认角色/租户、站点配置、4 篇演示内容。
-- C 端默认连 `http://localhost:3000`；上线时把 `server/` 部署为 Node 服务即可。
+- C 端目前**同源调用** `/api/*`（后端同进程托管前端时即 `localhost:3000`）。若把前端单独静态托管（如 GitHub Pages），需把 `server/` 部署为独立 Node 服务，并把 C 端接口基地址改为该后端地址（见第二节「手机端能用哪些功能」）。
 - 后端静态托管守卫：`/server`、`/node_modules`、`.git` 返回 404，源码不泄露。
 
 > 不启动后端：C 端本地功能（任务/笔记/知识库/看板/我的本地配置）照常可用；仅「内容/商城/云同步」需后端。
