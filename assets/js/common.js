@@ -1,6 +1,6 @@
 /* ===== 个人工作台 · 公共 UI（密码门/动态导航/双主题/Toast） ===== */
 const PBUI = (function () {
-  const PAGE_HREF = { dashboard: 'index.html', tasks: 'tasks.html', notes: 'notes.html', snippets: 'snippets.html', profile: 'profile.html' };
+  const PAGE_HREF = { dashboard: 'index.html', planner: 'planner.html', snippets: 'snippets.html', finance: 'finance.html', profile: 'profile.html', settings: 'settings.html' };
 
   const ICON = {
     grid:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>',
@@ -8,6 +8,8 @@ const PBUI = (function () {
     note:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l4 4v14H5z"/><path d="M9 9h7M9 13h7M9 17h4"/></svg>',
     book:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M19 3v16"/></svg>',
     user:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+    layers:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 18l9 5 9-5"/></svg>',
+    wallet:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h12v4"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 13h3"/></svg>',
     config:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>',
     link:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-5.7-5.7L11 8"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 5.7 5.7L13 16"/></svg>',
     star:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.8L6.6 19.6l1-6L3.3 9.4l6-.9z"/></svg>',
@@ -61,10 +63,8 @@ const PBUI = (function () {
     }
     const bar = document.getElementById('tabbar');
     if (bar) {
-      const mobile = nav.filter(n => n.key !== 'profile').slice(0, 4);
-      const prof = nav.find(n => n.key === 'profile');
-      const list = prof ? mobile.concat([prof]) : mobile;
-      bar.innerHTML = list.map(n => {
+      // 直接渲染全部已启用的 page 模块（按 order 排序），保证每个页面底部 Tab 数量一致
+      bar.innerHTML = nav.map(n => {
         const tgt = n.type === 'link' ? ' target="_blank" rel="noopener"' : '';
         const active = n.key === current ? ' active' : '';
         return `<a class="tab-item${active}" href="${esc(n.href)}"${tgt}><span class="ico">${ICON[n.icon] || ICON.grid}</span><span>${esc(n.label)}</span></a>`;

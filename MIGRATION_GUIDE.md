@@ -1,4 +1,4 @@
-# 个人工作台 · 换机迁移与部署指南（纯前端 v2.1）
+# 个人工作台 · 换机迁移与部署指南（纯前端 v2.2）
 
 本包用于把「个人工作台」整套代码、文档与（可选的）数据搬到另一台电脑，并重新部署。
 
@@ -6,7 +6,7 @@
 
 ## 一、这个包里有什么
 
-- **C 端（手机 App）全部源代码**：`index.html`、`tasks.html`、`notes.html`、`snippets.html`、`profile.html`，以及 `assets/`（样式 + 脚本）。
+- **C 端（手机 App）全部源代码**：`index.html`、`planner.html`、`snippets.html`、`finance.html`、`profile.html`、`settings.html`，以及 `assets/`（样式 + 脚本）。
 - **B 端（管理控制台）源代码**：`admin/`（login.html、index.html、assets）。
 - **PWA / 资源**：`sw.js`、`manifest.webmanifest`、`icon.svg`、`.nojekyll`。
 - **文档**：`README.md`、`PRD.md`、`技术栈文档.md`、本指南。

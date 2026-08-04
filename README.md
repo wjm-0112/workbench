@@ -113,20 +113,20 @@
 
 - **C 端**：年轻化移动 App 风，底部固定标签栏（看板/任务/笔记/知识库/我的），卡片化；浅色/深色一键切换。
 - **B 端**：专业后台风，桌面侧边栏 + 顶栏 + 表格；浅色/深色可切换。
-- 站点名称、主题色、模块显隐与改名、默认预设、看板布局，都可在 C 端「我的」页或管理台「站点配置」调整，无需改代码。
+- 站点名称、主题色、模块显隐与改名、默认预设、看板布局，都可在 C 端「设置」页或管理台「站点配置」调整，无需改代码。
 
 ---
 
 ## 九、文件结构（以后想自己改也看得懂）
 
 ```
-index.html / tasks.html / notes.html / snippets.html / profile.html
-                  C 端五大页面（手机 App 风）
+index.html / planner.html / snippets.html / finance.html / profile.html / settings.html
+                  C 端页面（手机 App 风）：看板/综合/知识库/财政/我的/设置
 admin/             B 端 本地管理控制台（login.html + index.html + assets）
 assets/css/        tokens.css（设计令牌）+ style.css（C 端样式）+ admin.css（B 端样式）
 assets/js/         store（数据+加密+GitHub同步+配置）、common（密码门/导航/主题）、
                    github-sync（GitHub API 同步）、
-                   tasks/notes/snippets/dashboard/profile（各页逻辑）
+                   planner/snippets/finance/dashboard/profile/settings（各页逻辑）
 manifest.webmanifest  sw.js  icon.svg  .nojekyll
 ```
-改文字、改颜色：C 端在 `assets/css/tokens.css`（令牌）+ `style.css`，配置在「我的」页；B 端在 `admin/assets/css/admin.css`。
+改文字、改颜色：C 端在 `assets/css/tokens.css`（令牌）+ `style.css`，配置在「设置」页；B 端在 `admin/assets/css/admin.css`。
