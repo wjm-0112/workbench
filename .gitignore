@@ -10,3 +10,10 @@ Desktop.ini
 # 本地数据备份（如有导出文件落在目录内）
 *.local.json
 backup-*.json
+
+# 后端：依赖与运行时数据（首次启动自动 npm install + 自动 seed，勿提交）
+server/node_modules/
+server/data/
+*.log
+.env
+.env.*

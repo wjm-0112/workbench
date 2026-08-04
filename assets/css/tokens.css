@@ -1,0 +1,26 @@
+/* ===== 个人工作台 · C 端共享设计令牌（design tokens） =====
+   颜色 / 圆角 / 间距 / 阴影 / 字体。C 端与 B 端共用变量名，
+   仅取值不同（C 端年轻活泼，B 端专业稳重）。运行时由 JS 配置覆盖（config.theme）。
+   本文件提供「未启动脚本前」与「默认配置」下的兜底取值。 */
+:root{
+  /* 颜色 */
+  --bg:#F4F6FB; --surface:#FFFFFF; --ink:#1D2330; --muted:#8A90A2;
+  --primary:#5B6CFF; --accent:#FF6B6B; --success:#1FC79B; --warn:#FFB020; --purple:#A56BFF;
+  --border:#ECEEF5;
+  /* 圆角 */
+  --radius:12px; --radius-lg:20px;
+  /* 阴影 */
+  --shadow:0 6px 20px rgba(27,38,64,.07);
+  --shadow-sm:0 2px 8px rgba(27,38,64,.06);
+  /* 字体 */
+  --font:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --font-title:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --font-body:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  /* 间距与尺寸 */
+  --gap:12px; --pad:16px; --maxw:600px;
+}
+html.theme-dark{
+  --bg:#0E1220; --surface:#171C2E; --ink:#E8ECF6; --muted:#9AA1B8;
+  --primary:#7C8CFF; --accent:#FF7B7B; --success:#34D399; --warn:#FBBF24; --purple:#B98BFF;
+  --border:#262B40; --shadow:0 6px 20px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.35);
+}

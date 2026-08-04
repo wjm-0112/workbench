@@ -63,6 +63,7 @@
             <th class="sortable" data-sort="status">状态</th>
             <th class="sortable" data-sort="due">截止</th>
             <th>标签</th>
+            <th>备注</th>
             <th>操作</th>
           </tr></thead>
           <tbody>
@@ -73,8 +74,9 @@
                 <td><span class="chip ${STATUS_CLASS[t.status]}">${STATUS[t.status]}</span></td>
                 <td>${esc(t.due || '—')}</td>
                 <td>${(t.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
+                <td class="muted note-cell">${esc((t.note || '').slice(0, 16)) || '—'}</td>
                 <td class="actions"><button class="rowbtn" data-edit="${t.id}">编辑</button><button class="rowbtn danger" data-del="${t.id}">删除</button></td>
-              </tr>`).join('') : `<tr><td colspan="6">${PBUI.emptyHint('还没有任务，点右上角新建')}</td></tr>`}
+              </tr>`).join('') : `<tr><td colspan="7">${PBUI.emptyHint('还没有任务，点右上角新建')}</td></tr>`}
           </tbody>
         </table>
       </div>`;
@@ -122,6 +124,7 @@
       <div class="field"><label>状态</label><select id="t-status">${Object.keys(STATUS).map(k => `<option value="${k}" ${(t ? t.status : 'todo') === k ? 'selected' : ''}>${STATUS[k]}</option>`).join('')}</select></div>
       <div class="field"><label>截止日期</label><input type="date" id="t-due" value="${esc(t ? t.due : '')}"></div>
       <div class="field"><label>标签（逗号分隔）</label><input type="text" id="t-tags" value="${esc(t ? (t.tags || []).join(',') : defTags.join(','))}" placeholder="工作,学习"></div>
+      <div class="field"><label>备注</label><textarea id="t-note" rows="2" placeholder="补充说明（可选）">${esc(t ? (t.note || '') : '')}</textarea></div>
       <div class="modal-foot">
         <button class="btn" onclick="PBUI.closeModal()">取消</button>
         <button class="btn btn-primary" id="t-save">保存</button>
@@ -130,8 +133,9 @@
       const title = document.getElementById('t-title').value.trim();
       if (!title) { PBUI.toast('标题不能为空'); return; }
       const tags = document.getElementById('t-tags').value.split(',').map(s => s.trim()).filter(Boolean);
-      if (t) { t.title = title; t.status = document.getElementById('t-status').value; t.due = document.getElementById('t-due').value; t.tags = tags; PB.touch(t); }
-      else { data().tasks.push(PB.touch({ id: PB.uid(), title, status: document.getElementById('t-status').value, due: document.getElementById('t-due').value, tags })); }
+      const note = document.getElementById('t-note').value.trim();
+      if (t) { t.title = title; t.status = document.getElementById('t-status').value; t.due = document.getElementById('t-due').value; t.tags = tags; t.note = note; PB.touch(t); }
+      else { data().tasks.push(PB.touch({ id: PB.uid(), title, status: document.getElementById('t-status').value, due: document.getElementById('t-due').value, tags, note })); }
       save(); PBUI.closeModal(); render();
     };
   }

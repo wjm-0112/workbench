@@ -83,29 +83,44 @@
     return e.replace(new RegExp('(' + safe + ')', 'gi'), '<mark>$1</mark>');
   }
 
+  // Markdown 渲染（优先 marked.js，缺失则回退到转义+裸链接高亮）
+  function sanitize(html) {
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+      .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+      .replace(/javascript:/gi, '');
+  }
+  function renderMarkdown(body) {
+    const raw = body || '';
+    if (typeof marked === 'undefined') {
+      return esc(raw).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>');
+    }
+    try { return sanitize(marked.parse(raw, { breaks: true })); }
+    catch (e) { return esc(raw).replace(/\n/g, '<br>'); }
+  }
+  // 扫描 Markdown 标题生成目录（展示用）
+  function buildToc(body) {
+    const out = []; let inCode = false;
+    (body || '').split('\n').forEach(ln => {
+      if (ln.trim().startsWith('```')) { inCode = !inCode; return; }
+      const m = ln.match(/^(#{1,3})\s+(.*)$/);
+      if (m && !inCode) out.push(esc(m[2]));
+    });
+    return out;
+  }
+
   function viewNote(id) {
     const n = data().notes.find(x => x.id === id); if (!n) return;
-    const lines = (n.body || '').split('\n');
-    const toc = [], bodyHtml = [];
-    let inCode = false;
-    lines.forEach((ln, i) => {
-      if (ln.trim().startsWith('```')) { inCode = !inCode; bodyHtml.push(esc(ln)); return; }
-      const m = ln.match(/^(#{1,3})\s+(.*)$/);
-      if (m && !inCode) {
-        const lvl = m[1].length, tid = 'h' + id + '_' + i;
-        toc.push(`<a href="#" data-anchor="${tid}">${esc(m[2])}</a>`);
-        bodyHtml.push(`<h${lvl + 1} id="${tid}">${hl(m[2], q)}</h${lvl + 1}>`);
-      } else {
-        bodyHtml.push(hl(ln, q));
-      }
-    });
+    const toc = buildToc(n.body);
+    const links = (n.links || []).filter(Boolean);
     PBUI.openModal(`
       <h2>${hl(n.title || '', q)}</h2>
       <div class="muted-note">${(n.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join(' ')}</div>
-      ${toc.length ? `<div class="toc">${toc.join('')}</div>` : ''}
-      <div class="prose">${bodyHtml.join('\n')}</div>
+      ${links.length ? `<div class="links-box">${links.map(l => `<a class="link-pill" href="${esc(l)}" target="_blank" rel="noopener">🔗 ${esc(l)}</a>`).join('')}</div>` : ''}
+      ${toc.length ? `<div class="toc"><b>目录</b>${toc.map(t => `<span>${t}</span>`).join('')}</div>` : ''}
+      <div class="prose">${renderMarkdown(n.body)}</div>
       <div class="modal-foot"><button class="btn" onclick="PBUI.closeModal()">关闭</button></div>`);
-    document.querySelectorAll('[data-anchor]').forEach(a => a.onclick = e => { e.preventDefault(); const el = document.getElementById(a.dataset.anchor); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
   }
 
   function editNote(id) {
@@ -114,7 +129,8 @@
       <h2>${n ? '编辑笔记' : '新建笔记'}</h2>
       <div class="field"><label>标题</label><input type="text" id="n-title" value="${esc(n ? n.title : '')}"></div>
       <div class="field"><label>标签（逗号分隔）</label><input type="text" id="n-tags" value="${esc(n ? (n.tags || []).join(',') : '')}" placeholder="工作,灵感"></div>
-      <div class="field"><label>内容（支持 # 标题 生成目录）</label><textarea id="n-body" style="min-height:200px;">${esc(n ? n.body : '')}</textarea></div>
+      <div class="field"><label>网页链接（每行一个，自动生成可点链接）</label><textarea id="n-links" rows="2" placeholder="https://example.com">${esc(n ? (n.links || []).join('\n') : '')}</textarea></div>
+      <div class="field"><label>内容（支持 Markdown：# 标题、**加粗**、列表、[链接](url)）</label><textarea id="n-body" style="min-height:200px;">${esc(n ? n.body : '')}</textarea></div>
       <div class="modal-foot">
         <button class="btn" onclick="PBUI.closeModal()">取消</button>
         <button class="btn btn-primary" id="n-save">保存</button>
@@ -123,9 +139,10 @@
       const title = document.getElementById('n-title').value.trim();
       if (!title) { PBUI.toast('标题不能为空'); return; }
       const tags = document.getElementById('n-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+      const links = document.getElementById('n-links').value.split('\n').map(s => s.trim()).filter(Boolean);
       const body = document.getElementById('n-body').value;
-      if (n) { n.title = title; n.tags = tags; n.body = body; PB.touch(n); }
-      else { data().notes.push(PB.touch({ id: PB.uid(), title, tags, body })); }
+      if (n) { n.title = title; n.tags = tags; n.links = links; n.body = body; PB.touch(n); }
+      else { data().notes.push(PB.touch({ id: PB.uid(), title, tags, links, body })); }
       save(); PBUI.closeModal(); render();
     };
   }

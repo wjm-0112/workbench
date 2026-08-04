@@ -1,18 +1,24 @@
-/* ===== 个人工作台 · 数据层 =====
- * 本地存储 + AES-GCM/PBKDF2 加密 + GitHub 同步 + 导出导入 + 配置
+/* ===== 个人工作台 · 数据层（C 端） =====
+ * 本地存储 + AES-GCM/PBKDF2 加密（随机盐）+ 后端云同步 + 导出导入 + 配置
  * 暴露全局对象 PB
+ *
+ * 云同步说明：数据仍以「访问密码」做客户端加密（端到端，服务端只见密文）；
+ * 登录账号仅作为把加密 blob 传到后端 / 跨设备拉取的「传输凭证」，与加密密码分离。
  */
 const PB = (function () {
   const STORAGE_KEY = 'pwb_data_v1';
   const SESSION_KEY = 'pwb_session_v1';
   const KEY_SESSION_KEY = 'pwb_keysession_v1';
+  const PASS_SESSION_KEY = 'pwb_pass_v1';          // 仅 sessionStorage，同标签页免重复输密码
   const SETTINGS_KEY = 'pwb_settings_v1';          // 旧明文同步键（迁移后删除）
-  const SALT = new TextEncoder().encode('pwb-crayon-salt-v1');
+  const LEGACY_SALT = new TextEncoder().encode('pwb-crayon-salt-v1'); // 仅用于解密旧格式 blob
 
-  let cryptoKey = null;   // 当前解锁的 CryptoKey
+  let cryptoKey = null;   // 当前解锁的 CryptoKey（用于会话 JWK 持久化）
+  let accessPassword = null; // 访问密码（用于按随机盐重新派生密钥）
   let data = null;        // 解密后的数据对象
   let saveTimer = null;
   let syncTimer = null;
+  let cloudToken = localStorage.getItem('pwb_cloud_token') || null;
 
   /* ---------- 工具 ---------- */
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -26,17 +32,19 @@ const PB = (function () {
     siteName: '我的工作台',
     theme: {
       mode: 'light',
-      light: { primary:'#1E3A8A', accent:'#E5484D', bg:'#F5F7FA', surface:'#FFFFFF', ink:'#1F2329', muted:'#8A9099', success:'#2BA471', warn:'#F0A020', purple:'#7C5CFF', border:'#E5E7EB', radius:'8px', radiusLg:'14px' },
-      dark:  { primary:'#60A5FA', accent:'#F87171', bg:'#0F172A', surface:'#1E293B', ink:'#E5E9F0', muted:'#94A3B8', success:'#34D399', warn:'#FBBF24', purple:'#A78BFA', border:'#334155', radius:'8px', radiusLg:'14px' },
+      light: { primary:'#5B6CFF', accent:'#FF6B6B', bg:'#F4F6FB', surface:'#FFFFFF', ink:'#1D2330', muted:'#8A90A2', success:'#1FC79B', warn:'#FFB020', purple:'#A56BFF', border:'#ECEEF5', radius:'12px', radiusLg:'20px' },
+      dark:  { primary:'#7C8CFF', accent:'#FF7B7B', bg:'#0E1220', surface:'#171C2E', ink:'#E8ECF6', muted:'#9AA1B8', success:'#34D399', warn:'#FBBF24', purple:'#B98BFF', border:'#262B40', radius:'12px', radiusLg:'20px' },
       fontTitle: "system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif",
       fontBody: "system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif"
     },
     modules: [
       { key:'dashboard', label:'看板', enabled:true, order:1, type:'page', icon:'grid', core:true },
-      { key:'tasks',    label:'任务', enabled:true, order:2, type:'page', icon:'check', core:true },
-      { key:'notes',    label:'笔记', enabled:true, order:3, type:'page', icon:'note', core:true },
-      { key:'snippets', label:'知识库', enabled:true, order:4, type:'page', icon:'book', core:true },
-      { key:'profile',  label:'我的', enabled:true, order:5, type:'page', icon:'user', core:true }
+      { key:'content',   label:'内容', enabled:true, order:2, type:'page', icon:'news', core:true },
+      { key:'tasks',    label:'任务', enabled:true, order:3, type:'page', icon:'check', core:true },
+      { key:'notes',    label:'笔记', enabled:true, order:4, type:'page', icon:'note', core:true },
+      { key:'snippets', label:'知识库', enabled:true, order:5, type:'page', icon:'book', core:true },
+      { key:'orders',   label:'商城', enabled:true, order:6, type:'page', icon:'cart', core:true },
+      { key:'profile',  label:'我的', enabled:true, order:7, type:'page', icon:'user', core:true }
     ],
     defaults: {
       taskTags: ['工作','生活','学习'],
@@ -44,8 +52,8 @@ const PB = (function () {
       kbCategories: ['通用','前端','后端','API','命令','SQL']
     },
     dashboard: { showCards:['pending','dueToday','overdue','habitStreak'], showWeekTrend:true, showCategoryBreakdown:true },
-    sync: { enabled:false, user:'', repo:'', token:'', path:'data.json' },
-    profile: { userName:'我', role:'管理员' }
+    cloud: { enabled:false },   // 后端云同步开关（账号登录后生效）
+    profile: { userName:'我', role:'会员' }
   };
 
   /* ---------- 配置合并 / 迁移 ---------- */
@@ -77,55 +85,72 @@ const PB = (function () {
       if (s.category == null) s.category = '通用';
       delete s.code; delete s.lang;
     });
-    // 旧明文同步键 → 加密 config.sync
     d.config = deepMergeConfig(d.config);
-    let legacy = null;
-    try { legacy = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) { legacy = null; }
-    if (legacy && legacy.token) {
-      d.config.sync = Object.assign({}, d.config.sync, {
-        enabled: !!legacy.enabled, user: legacy.user || '', repo: legacy.repo || '',
-        token: legacy.token || '', path: legacy.path || 'data.json'
-      });
-      try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
-    }
+    // 清理旧的明文同步键（已废弃）
+    try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
     return d;
   }
 
-  /* ---------- 加密 ---------- */
-  async function deriveKey(password) {
+  /* ---------- 加密（随机盐 + 版本化格式 + 分块 base64） ---------- */
+  async function deriveKey(password, saltBytes) {
+    const salt = saltBytes || LEGACY_SALT;
     const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: SALT, iterations: 100000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
       base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
     );
   }
-  async function encryptObj(obj, k) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const pt = new TextEncoder().encode(JSON.stringify(obj));
-    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, pt);
-    const out = new Uint8Array(iv.length + ct.byteLength);
-    out.set(iv, 0); out.set(new Uint8Array(ct), iv.length);
-    return btoa(String.fromCharCode.apply(null, out));
+  // 分块 base64，避免大数组 apply 触发 RangeError
+  function bytesToB64(bytes) {
+    let bin = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    return btoa(bin);
   }
-  async function decryptObj(b64, k) {
+  function b64ToBytes(b64) {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const iv = bytes.slice(0, 12), ct = bytes.slice(12);
-    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, k, ct);
+    return bytes;
+  }
+  // 新格式：版本(1B=2) + 随机盐(16B) + IV(12B) + 密文
+  async function encryptObj(obj, password) {
+    const pw = password || accessPassword;
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await deriveKey(pw, salt);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(obj)));
+    const out = new Uint8Array(1 + 16 + 12 + ct.byteLength);
+    out[0] = 2;
+    out.set(salt, 1); out.set(iv, 17); out.set(new Uint8Array(ct), 29);
+    return bytesToB64(out);
+  }
+  async function decryptObj(b64, password) {
+    const pw = password || accessPassword;
+    const bytes = b64ToBytes(b64);
+    let salt, iv, ct;
+    if (bytes[0] === 2) { salt = bytes.slice(1, 17); iv = bytes.slice(17, 29); ct = bytes.slice(29); }
+    else { salt = LEGACY_SALT; iv = bytes.slice(0, 12); ct = bytes.slice(12); } // 旧格式兼容
+    const key = await deriveKey(pw, salt);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
     return JSON.parse(new TextDecoder().decode(pt));
   }
 
-  /* ---------- 会话内密钥持久化（仅 sessionStorage，关标签页即清） ---------- */
+  /* ---------- 会话内密钥/密码持久化（仅 sessionStorage，关标签页即清） ---------- */
   async function storeKeySession() {
-    try { sessionStorage.setItem(KEY_SESSION_KEY, JSON.stringify(await crypto.subtle.exportKey('jwk', cryptoKey))); } catch (e) {}
+    try {
+      sessionStorage.setItem(KEY_SESSION_KEY, JSON.stringify(await crypto.subtle.exportKey('jwk', cryptoKey)));
+      if (accessPassword) sessionStorage.setItem(PASS_SESSION_KEY, accessPassword);
+    } catch (e) {}
   }
   async function restore() {
     try {
       const kj = sessionStorage.getItem(KEY_SESSION_KEY);
       const ds = sessionStorage.getItem(SESSION_KEY);
+      const pw = sessionStorage.getItem(PASS_SESSION_KEY);
       if (!kj || !ds) return false;
       cryptoKey = await crypto.subtle.importKey('jwk', JSON.parse(kj), { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+      accessPassword = pw;
       data = migrateConfig(JSON.parse(ds));
       return true;
     } catch (e) { return false; }
@@ -135,8 +160,8 @@ const PB = (function () {
   function hasLocal() { return !!localStorage.getItem(STORAGE_KEY); }
 
   async function persist() {
-    if (!cryptoKey || !data) return;
-    const blob = await encryptObj(data, cryptoKey);
+    if (!cryptoKey || !data || !accessPassword) return;
+    const blob = await encryptObj(data, accessPassword);
     localStorage.setItem(STORAGE_KEY, blob);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
     scheduleSync();
@@ -147,29 +172,29 @@ const PB = (function () {
   /* ---------- 解锁 ---------- */
   async function unlock(password) {
     const blob = localStorage.getItem(STORAGE_KEY);
+    accessPassword = password;
     if (!blob) {
-      cryptoKey = await deriveKey(password);
+      cryptoKey = await deriveKey(password, LEGACY_SALT);
       await storeKeySession();
       data = migrateConfig(emptyData());
       await persist();
       return 'first';
     }
     try {
-      cryptoKey = await deriveKey(password);
+      cryptoKey = await deriveKey(password, LEGACY_SALT);
       await storeKeySession();
-      data = migrateConfig(await decryptObj(blob, cryptoKey));
+      data = migrateConfig(await decryptObj(blob, password));
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
       return 'ok';
     } catch (e) {
-      cryptoKey = null; data = null;
+      cryptoKey = null; data = null; accessPassword = null;
       return 'wrong';
     }
   }
-  // 仅当内存里同时存在密钥与数据才算解锁；data 的恢复必须伴随密钥恢复（由 restore() 完成）。
   function isUnlocked() { return !!(cryptoKey && data); }
   function lock() {
-    cryptoKey = null; data = null;
-    sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(KEY_SESSION_KEY);
+    cryptoKey = null; data = null; accessPassword = null;
+    sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(KEY_SESSION_KEY); sessionStorage.removeItem(PASS_SESSION_KEY);
   }
 
   /* ---------- 数据访问 ---------- */
@@ -181,17 +206,14 @@ const PB = (function () {
   function setConfig(cfg) { if (!data) return; data.config = cfg; save(); }
   function updateConfig(fn) { const c = getConfig(); fn(c); setConfig(c); }
 
-  /* ---------- GitHub 同步（凭据来自加密 config.sync） ---------- */
-  function syncSettings() { return ((data && data.config && data.config.sync) || DEFAULT_CONFIG.sync); }
-  async function githubGet(settings) {
-    const path = settings.path || 'data.json';
-    const url = `https://api.github.com/repos/${settings.user}/${settings.repo}/contents/${path}`;
-    const head = await fetch(url, { headers: { Authorization: 'Bearer ' + settings.token, Accept: 'application/vnd.github+json' } });
-    if (head.status === 404) return null;
-    if (!head.ok) throw new Error('GitHub 读取失败：' + head.status);
-    const j = await head.json();
-    return { content: j.content, sha: j.sha };
+  /* ---------- 后端云同步（账号登录后，把加密 blob 传后端，端到端加密） ---------- */
+  function cloudEnabled() { return !!(data && data.config && data.config.cloud && data.config.cloud.enabled); }
+  function setCloudToken(t) {
+    cloudToken = t || null;
+    if (cloudToken) localStorage.setItem('pwb_cloud_token', cloudToken);
+    else localStorage.removeItem('pwb_cloud_token');
   }
+  function getCloudToken() { return cloudToken; }
   function mergeRemote(remoteData) {
     if (!remoteData || !data) return;
     ['tasks', 'notes', 'snippets', 'habits'].forEach((col) => {
@@ -204,41 +226,37 @@ const PB = (function () {
     });
     data.meta = Object.assign({}, data.meta, remoteData.meta || {});
   }
-  async function syncPull() {
-    const s = syncSettings();
-    if (!s.enabled || !s.token || !s.user || !s.repo) return { ok: false, reason: 'disabled' };
-    if (!cryptoKey) return { ok: false, reason: '未解锁，请刷新页面重新输入密码' };
+  async function cloudPush() {
+    if (!cloudEnabled() || !cloudToken || !accessPassword) return { ok: false, reason: 'disabled' };
     try {
-      const remote = await githubGet(s);
-      if (!remote) return { ok: true, pulled: false };
-      const remoteData = await decryptObj(remote.content, cryptoKey);
+      const blob = await encryptObj(data, accessPassword);
+      const res = await fetch('/api/sync/blob', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cloudToken },
+        body: JSON.stringify({ blob })
+      });
+      if (!res.ok) throw new Error('上传失败 ' + res.status);
+      data.meta.lastSyncAt = nowISO();
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: e.message }; }
+  }
+  async function cloudPull() {
+    if (!cloudEnabled() || !cloudToken || !accessPassword) return { ok: false, reason: 'disabled' };
+    try {
+      const res = await fetch('/api/sync/blob', { headers: { Authorization: 'Bearer ' + cloudToken } });
+      if (res.status === 204) return { ok: true, pulled: false };
+      const j = await res.json();
+      const remoteData = await decryptObj(j.blob, accessPassword);
       mergeRemote(remoteData);
       await persist();
       return { ok: true, pulled: true };
     } catch (e) { return { ok: false, reason: e.message }; }
   }
-  async function syncPush() {
-    const s = syncSettings();
-    if (!s.enabled || !s.token || !s.user || !s.repo) return { ok: false, reason: 'disabled' };
-    if (!cryptoKey) return { ok: false, reason: '未解锁，请刷新页面重新输入密码' };
-    try {
-      const blob = await encryptObj(data, cryptoKey);
-      const path = s.path || 'data.json';
-      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${path}`;
-      let sha; const head = await fetch(url, { headers: { Authorization: 'Bearer ' + s.token, Accept: 'application/vnd.github+json' } });
-      if (head.ok) sha = (await head.json()).sha;
-      const res = await fetch(url, {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + s.token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'sync ' + new Date().toISOString(), content: blob, sha })
-      });
-      if (!res.ok) throw new Error('推送失败：' + res.status);
-      data.meta.lastSyncAt = nowISO();
-      await persist();
-      return { ok: true };
-    } catch (e) { return { ok: false, reason: e.message }; }
+  function scheduleSync() {
+    if (!cloudEnabled() || !cloudToken) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { cloudPush().then(() => {}); }, 1500);
   }
-  function scheduleSync() { clearTimeout(syncTimer); syncTimer = setTimeout(() => { syncPush().then(() => {}); }, 1500); }
 
   /* ---------- 导出 / 导入 ---------- */
   function exportJSON() { return JSON.stringify(data, null, 2); }
@@ -251,9 +269,10 @@ const PB = (function () {
   /* ---------- 修改密码 ---------- */
   async function changePassword(oldP, newP) {
     const blob = localStorage.getItem(STORAGE_KEY);
-    try { await decryptObj(blob, await deriveKey(oldP)); }
+    try { await decryptObj(blob, oldP); }
     catch (e) { return false; }
-    cryptoKey = await deriveKey(newP);
+    accessPassword = newP;
+    cryptoKey = await deriveKey(newP, LEGACY_SALT);
     await storeKeySession();
     await persist();
     return true;
@@ -264,7 +283,7 @@ const PB = (function () {
     unlock, isUnlocked, lock, getData, restore, migrateConfig,
     save, saveNow, hasLocal,
     getConfig, setConfig, updateConfig,
-    syncPull, syncPush,
+    cloudPush, cloudPull, setCloudToken, getCloudToken, cloudEnabled,
     exportJSON, importJSON, changePassword
   };
 })();

@@ -12,6 +12,7 @@
   const data = () => PB.getData();
   const cfg = () => PB.getConfig();
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#1E3A8A';
+  let notified = false;
   const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   function dayDiff(a, b) { return Math.round((new Date(a) - new Date(b)) / 86400000); }
 
@@ -70,6 +71,7 @@
       ${(c.dashboard.showCategoryBreakdown !== false) ? `
       <div class="card"><h3>任务状态分布</h3><div style="max-width:360px;"><canvas id="cat" height="200"></canvas></div>
         ${typeof Chart === 'undefined' ? '<p class="muted-note">（图表库需联网加载，当前离线未显示）</p>' : ''}</div>` : ''}
+      <div class="card"><h3>最近笔记</h3><div id="recentNotes">${recentNotesHTML()}</div></div>
       <div class="card"><h3>习惯打卡</h3><div id="habits">${habitsHTML()}</div></div>
     `;
     if (typeof Chart !== 'undefined') {
@@ -90,6 +92,20 @@
       }
     }
     bindHabits();
+    if (!notified && (sc.overdue || sc.dueToday)) {
+      PBUI.toast(`你有 ${sc.overdue} 项已逾期、${sc.dueToday} 项今日到期`, '');
+      notified = true;
+    }
+  }
+
+  function recentNotesHTML() {
+    const notes = (data().notes || []).slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 5);
+    if (!notes.length) return '<p class="muted-note">还没有笔记</p>';
+    return `<div class="recent-list">${notes.map(n => `
+      <a class="recent-item" href="notes.html">
+        <span class="recent-title">${esc(n.title || '无标题')}</span>
+        <span class="muted-note">${esc(PBUI.fmtDate(n.updatedAt))}</span>
+      </a>`).join('')}</div>`;
   }
 
   function habitsHTML() {
