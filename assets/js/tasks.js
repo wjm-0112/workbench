@@ -1,93 +1,140 @@
-const STATUS = {
-  todo: { label: '待办', cls: 'status-todo', dot: 'dot-todo' },
-  doing: { label: '进行中', cls: 'status-doing', dot: 'dot-doing' },
-  done: { label: '完成', cls: 'status-done', dot: 'dot-done' }
-};
+/* ===== 任务（表格化 + 批量/搜索/排序/筛选） ===== */
+(async function () {
+  const esc = PBUI.esc;
+  const save = () => PB.save();
+  const STATUS = { todo: '待办', doing: '进行中', done: '已完成' };
+  const STATUS_CLASS = { todo: 'status-todo', doing: 'status-doing', done: 'status-done' };
 
-function renderTasks() {
-  const d = PB.getData();
-  const q = (document.getElementById('search').value || '').toLowerCase();
-  const f = document.getElementById('filter').value;
-  let items = d.tasks.filter(t => {
-    if (f && t.status !== f) return false;
-    if (q && !((t.title || '') + (t.note || '') + (t.tags || []).join(' ')).toLowerCase().includes(q)) return false;
-    return true;
-  });
-  items.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
-  const list = document.getElementById('list');
-  if (!items.length) { list.innerHTML = PBUI.emptyHint('还没有任务，点右上角“+ 新增”加一条吧～'); return; }
-  const today = PBUI.todayStr();
-  list.innerHTML = items.map(t => {
-    const st = STATUS[t.status] || STATUS.todo;
-    const overdue = t.due && t.status !== 'done' && t.due < today;
-    return `<div class="item">
-      <div class="row">
-        <span class="title">${PBUI.esc(t.title)}</span>
-        <span class="chip ${st.cls}"><span class="dot ${st.dot}"></span>${st.label}</span>
-      </div>
-      ${t.due ? `<div class="meta" style="${overdue ? 'color:var(--accent)' : ''}">截止：${PBUI.esc(t.due)} ${overdue ? '(已逾期)' : ''}</div>` : ''}
-      ${t.tags && t.tags.length ? `<div class="meta">${t.tags.map(x => `<span class="chip">${PBUI.esc(x)}</span>`).join(' ')}</div>` : ''}
-      ${t.note ? `<div class="meta">${PBUI.esc(t.note)}</div>` : ''}
-      <div class="actions right">
-        <button class="btn btn-sm" data-edit="${t.id}">编辑</button>
-        <button class="btn btn-sm btn-accent" data-del="${t.id}">删除</button>
-      </div>
-    </div>`;
-  }).join('');
-  list.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openTask(b.dataset.edit));
-  list.querySelectorAll('[data-del]').forEach(b => b.onclick = () => delTask(b.dataset.del));
-}
-
-function openTask(id) {
-  const d = PB.getData();
-  const t = id ? d.tasks.find(x => x.id === id) : null;
-  const tpl = `
-    <h2>${id ? '编辑任务' : '新增任务'}</h2>
-    <div class="field"><label>标题</label><input type="text" id="f-title" value="${PBUI.esc(t ? t.title : '')}"></div>
-    <div class="field"><label>备注</label><textarea id="f-note">${PBUI.esc(t ? t.note : '')}</textarea></div>
-    <div class="field"><label>截止日期</label><input type="date" id="f-due" value="${t && t.due ? t.due : ''}"></div>
-    <div class="field"><label>状态</label><select id="f-status">
-      <option value="todo" ${t && t.status === 'todo' ? 'selected' : ''}>待办</option>
-      <option value="doing" ${t && t.status === 'doing' ? 'selected' : ''}>进行中</option>
-      <option value="done" ${t && t.status === 'done' ? 'selected' : ''}>完成</option>
-    </select></div>
-    <div class="field"><label>标签（逗号分隔）</label><input type="text" id="f-tags" value="${t && t.tags ? PBUI.esc(t.tags.join(',')) : ''}"></div>
-    <div class="toolbar">
-      <button class="btn btn-primary" id="save">保存</button>
-      <button class="btn btn-ghost" id="cancel">取消</button>
-    </div>`;
-  PBUI.openModal(tpl);
-  document.getElementById('cancel').onclick = PBUI.closeModal;
-  document.getElementById('save').onclick = () => {
-    const title = document.getElementById('f-title').value.trim();
-    if (!title) { PBUI.toast('标题不能为空'); return; }
-    const obj = {
-      title,
-      note: document.getElementById('f-note').value,
-      due: document.getElementById('f-due').value,
-      status: document.getElementById('f-status').value,
-      tags: document.getElementById('f-tags').value.split(',').map(s => s.trim()).filter(Boolean)
-    };
-    if (id) { Object.assign(t, obj); PBUI.touch(t); }
-    else { d.tasks.push(PBUI.touch(Object.assign({ id: PB.uid() }, obj))); }
-    PB.save(); PBUI.closeModal(); renderTasks(); PBUI.toast('已保存');
-  };
-}
-
-function delTask(id) {
-  if (!confirm('确定删除这条任务？')) return;
-  const d = PB.getData();
-  d.tasks = d.tasks.filter(x => x.id !== id);
-  PB.save(); renderTasks(); PBUI.toast('已删除');
-}
-
-window.addEventListener('DOMContentLoaded', async () => {
+  if (!await PBUI.ensureUnlocked()) return;
+  // 模块被禁用则跳转首个启用模块
+  const mods = PB.getConfig().modules.filter(m => m.enabled !== false);
+  if (!mods.find(m => m.key === 'tasks')) { location.href = (mods[0] && mods[0].key === 'dashboard' ? 'index.html' : mods[0].key + '.html') || 'index.html'; return; }
+  PBUI.applyTheme(PB.getConfig().theme);
   PBUI.renderChrome('tasks');
-  const ok = await PBUI.ensureUnlocked();
-  if (!ok) return;
   await PBUI.afterUnlockSync();
-  document.getElementById('add-btn').onclick = () => openTask(null);
-  document.getElementById('search').oninput = renderTasks;
-  document.getElementById('filter').onchange = renderTasks;
-  renderTasks();
-});
+
+  const data = () => PB.getData();
+  const norm = t => { t.status = t.status || 'todo'; t.tags = t.tags || []; return t; };
+  let selected = new Set();
+  let sortKey = 'due', sortDir = 1;
+  let q = '', fStatus = '', fTag = '';
+
+  function allTags() {
+    const s = new Set(); data().tasks.forEach(t => (t.tags || []).forEach(x => s.add(x))); return Array.from(s);
+  }
+
+  function filtered() {
+    let list = data().tasks.map(norm);
+    if (q) { const low = q.toLowerCase(); list = list.filter(t => (t.title || '').toLowerCase().includes(low) || (t.tags || []).join(' ').toLowerCase().includes(low)); }
+    if (fStatus) list = list.filter(t => t.status === fStatus);
+    if (fTag) list = list.filter(t => (t.tags || []).includes(fTag));
+    list.sort((a, b) => {
+      let va, vb;
+      if (sortKey === 'title') { va = a.title || ''; vb = b.title || ''; return va.localeCompare(vb, 'zh') * sortDir; }
+      if (sortKey === 'status') { va = ['todo', 'doing', 'done'].indexOf(a.status); vb = ['todo', 'doing', 'done'].indexOf(b.status); }
+      else { va = a.due || ''; vb = b.due || ''; }
+      return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
+    });
+    return list;
+  }
+
+  function render() {
+    const list = filtered();
+    const tags = allTags();
+    const content = document.getElementById('content');
+    content.innerHTML = `
+      <div class="page-head"><h1>任务</h1><button class="btn btn-primary" id="add">+ 新建任务</button></div>
+      <div class="toolbar">
+        <input type="search" id="q" placeholder="搜索标题/标签" value="${esc(q)}">
+        <select id="fStatus"><option value="">全部状态</option>${Object.keys(STATUS).map(k => `<option value="${k}" ${fStatus === k ? 'selected' : ''}>${STATUS[k]}</option>`).join('')}</select>
+        <select id="fTag"><option value="">全部分类</option>${tags.map(t => `<option value="${esc(t)}" ${fTag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+      </div>
+      <div class="batch-bar ${selected.size ? '' : 'hidden'}" id="batch">
+        <span class="count">已选 ${selected.size} 项</span>
+        <button class="btn btn-sm" id="b-done">标记已完成</button>
+        <button class="btn btn-sm" id="b-tag">加标签</button>
+        <button class="btn btn-sm btn-accent" id="b-del">删除</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr>
+            <th class="col-check"><input type="checkbox" id="checkAll"></th>
+            <th class="sortable" data-sort="title">标题</th>
+            <th class="sortable" data-sort="status">状态</th>
+            <th class="sortable" data-sort="due">截止</th>
+            <th>标签</th>
+            <th>操作</th>
+          </tr></thead>
+          <tbody>
+            ${list.length ? list.map(t => `
+              <tr class="${selected.has(t.id) ? 'selected' : ''}" data-id="${t.id}">
+                <td class="col-check"><input type="checkbox" class="rowcheck" data-id="${t.id}" ${selected.has(t.id) ? 'checked' : ''}></td>
+                <td>${esc(t.title || '')}</td>
+                <td><span class="chip ${STATUS_CLASS[t.status]}">${STATUS[t.status]}</span></td>
+                <td>${esc(t.due || '—')}</td>
+                <td>${(t.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
+                <td class="actions"><button class="rowbtn" data-edit="${t.id}">编辑</button><button class="rowbtn danger" data-del="${t.id}">删除</button></td>
+              </tr>`).join('') : `<tr><td colspan="6">${PBUI.emptyHint('还没有任务，点右上角新建')}</td></tr>`}
+          </tbody>
+        </table>
+      </div>`;
+    bind();
+  }
+
+  function bind() {
+    document.getElementById('add').onclick = () => editTask(null);
+    document.getElementById('q').oninput = e => { q = e.target.value; render(); };
+    document.getElementById('fStatus').onchange = e => { fStatus = e.target.value; render(); };
+    document.getElementById('fTag').onchange = e => { fTag = e.target.value; render(); };
+    document.querySelectorAll('.sortable').forEach(th => th.onclick = () => {
+      const k = th.dataset.sort; if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; } render();
+    });
+    const checkAll = document.getElementById('checkAll');
+    checkAll.onchange = () => { filtered().forEach(t => { if (checkAll.checked) selected.add(t.id); else selected.delete(t.id); }); render(); };
+    document.querySelectorAll('.rowcheck').forEach(cb => cb.onchange = () => {
+      const id = cb.dataset.id; if (cb.checked) selected.add(id); else selected.delete(id); render();
+    });
+    document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editTask(b.dataset.edit));
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      if (!confirm('确定删除该任务？')) return;
+      data().tasks = data().tasks.filter(t => t.id !== b.dataset.del); save(); render();
+    });
+    const batch = document.getElementById('batch');
+    if (batch && selected.size) {
+      document.getElementById('b-done').onclick = () => { selected.forEach(id => { const t = data().tasks.find(x => x.id === id); if (t) { t.status = 'done'; PB.touch(t); } }); save(); render(); PBUI.toast('已标记完成'); };
+      document.getElementById('b-tag').onclick = () => {
+        const tag = prompt('输入要添加的标签：'); if (!tag) return;
+        selected.forEach(id => { const t = data().tasks.find(x => x.id === id); if (t) { t.tags = t.tags || []; if (!t.tags.includes(tag)) t.tags.push(tag); PB.touch(t); } }); save(); render(); PBUI.toast('已添加标签');
+      };
+      document.getElementById('b-del').onclick = () => {
+        if (!confirm('确定删除选中的 ' + selected.size + ' 项？')) return;
+        data().tasks = data().tasks.filter(t => !selected.has(t.id)); selected.clear(); save(); render();
+      };
+    }
+  }
+
+  function editTask(id) {
+    const t = id ? data().tasks.find(x => x.id === id) : null;
+    const defTags = PB.getConfig().defaults.taskTags;
+    PBUI.openModal(`
+      <h2>${t ? '编辑任务' : '新建任务'}</h2>
+      <div class="field"><label>标题</label><input type="text" id="t-title" value="${esc(t ? t.title : '')}"></div>
+      <div class="field"><label>状态</label><select id="t-status">${Object.keys(STATUS).map(k => `<option value="${k}" ${(t ? t.status : 'todo') === k ? 'selected' : ''}>${STATUS[k]}</option>`).join('')}</select></div>
+      <div class="field"><label>截止日期</label><input type="date" id="t-due" value="${esc(t ? t.due : '')}"></div>
+      <div class="field"><label>标签（逗号分隔）</label><input type="text" id="t-tags" value="${esc(t ? (t.tags || []).join(',') : defTags.join(','))}" placeholder="工作,学习"></div>
+      <div class="modal-foot">
+        <button class="btn" onclick="PBUI.closeModal()">取消</button>
+        <button class="btn btn-primary" id="t-save">保存</button>
+      </div>`);
+    document.getElementById('t-save').onclick = () => {
+      const title = document.getElementById('t-title').value.trim();
+      if (!title) { PBUI.toast('标题不能为空'); return; }
+      const tags = document.getElementById('t-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+      if (t) { t.title = title; t.status = document.getElementById('t-status').value; t.due = document.getElementById('t-due').value; t.tags = tags; PB.touch(t); }
+      else { data().tasks.push(PB.touch({ id: PB.uid(), title, status: document.getElementById('t-status').value, due: document.getElementById('t-due').value, tags })); }
+      save(); PBUI.closeModal(); render();
+    };
+  }
+
+  render();
+})();
