@@ -127,9 +127,9 @@
         <h3>默认预设</h3>
         <div class="field"><label>任务默认标签</label><div id="tags-task">${tagsHTML(c.defaults.taskTags)}</div></div>
         <div class="field"><label>习惯打卡项</label><div id="tags-habit">${tagsHTML(c.defaults.habitItems)}</div></div>
-        <div class="field"><label>知识库分类</label><div id="tags-kb">${tagsHTML(c.defaults.kbCategories)}</div></div>
         <div class="field"><label>财政分类</label><div id="tags-fin">${tagsHTML(c.defaults.financeCategories)}</div></div>
         <div class="field"><label>财政账户</label><div id="tags-acc">${tagsHTML(c.defaults.financeAccounts)}</div></div>
+        <div class="field"><label>存储方式</label><div id="tags-save">${tagsHTML(c.defaults.savingsMethods)}</div></div>
       </div>
 
       <div class="cfg-section">
@@ -186,9 +186,9 @@
     bindCloud();
     bindTags('tags-task', c.defaults.taskTags);
     bindTags('tags-habit', c.defaults.habitItems);
-    bindTags('tags-kb', c.defaults.kbCategories);
     bindTags('tags-fin', c.defaults.financeCategories);
     bindTags('tags-acc', c.defaults.financeAccounts);
+    bindTags('tags-save', c.defaults.savingsMethods);
     document.querySelectorAll('input[data-card]').forEach(cb => cb.onchange = () => {
       const k = cb.dataset.card; const arr = c.dashboard.showCards;
       if (cb.checked) { if (!arr.includes(k)) arr.push(k); } else { c.dashboard.showCards = arr.filter(x => x !== k); }

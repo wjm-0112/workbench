@@ -1,12 +1,12 @@
-const CACHE = 'pwb-v5';
+const CACHE = 'pwb-v6';
 const ASSETS = [
-  // C 端页面（v2.2：看板/综合/知识库/财政/我的 + 设置）
-  './', './index.html', './planner.html', './snippets.html', './finance.html', './profile.html', './settings.html',
+  // C 端页面（看板/综合/财政/我的 + 设置）
+  './', './index.html', './planner.html', './finance.html', './profile.html', './settings.html',
   // C 端样式（设计令牌 + 主样式）
   './assets/css/tokens.css', './assets/css/style.css',
   // C 端脚本（含 GitHub 云同步）
   './assets/js/store.js', './assets/js/github-sync.js', './assets/js/common.js',
-  './assets/js/planner.js', './assets/js/snippets.js', './assets/js/finance.js',
+  './assets/js/planner.js', './assets/js/finance.js',
   './assets/js/dashboard.js', './assets/js/profile.js', './assets/js/settings.js',
   // 管理台（admin/，复用根 assets/js/store.js、github-sync.js）
   './admin/index.html', './admin/login.html',

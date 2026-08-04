@@ -1,6 +1,16 @@
 /* ===== 个人工作台 · 公共 UI（密码门/动态导航/双主题/Toast） ===== */
 const PBUI = (function () {
-  const PAGE_HREF = { dashboard: 'index.html', planner: 'planner.html', snippets: 'snippets.html', finance: 'finance.html', profile: 'profile.html', settings: 'settings.html' };
+  const PAGE_HREF = { dashboard: 'index.html', planner: 'planner.html', finance: 'finance.html', profile: 'profile.html', settings: 'settings.html' };
+
+  // 习惯默认配色（不同习惯用不同颜色区分）
+  const HABIT_PALETTE = ['#5B6CFF', '#1FC79B', '#FFB020', '#A56BFF', '#FF6B6B', '#3B82F6', '#34D399', '#F472B6', '#FBBF24', '#60A5FA'];
+
+  function hexToRgba(hex, a) {
+    const h = (hex || '#5B6CFF').replace('#', '');
+    const n = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
 
   const ICON = {
     grid:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>',
@@ -52,9 +62,9 @@ const PBUI = (function () {
     return wrap;
   }
 
-  // 月历：cells={'YYYY-MM-DD':{habit:bool,task:number,note:number}}；点击由调用方用 .cal-cell[data-date] 委托绑定
+  // 月历：cells={'YYYY-MM-DD':{habit:bool,task:number,note:number}}；accent 可指定习惯色（覆盖主色）
   function monthCalendar(opts) {
-    const year = opts.year, month = opts.month, cells = opts.cells || {};
+    const year = opts.year, month = opts.month, cells = opts.cells || {}, accent = opts.accent || '';
     const startW = new Date(year, month, 1).getDay();
     const days = new Date(year, month + 1, 0).getDate();
     const wd = ['日', '一', '二', '三', '四', '五', '六'];
@@ -65,18 +75,19 @@ const PBUI = (function () {
       const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const c = cells[ds] || {};
       let cls = 'cal-cell'; if (c.habit) cls += ' on'; if (ds === t) cls += ' today';
+      const onStyle = (c.habit && accent) ? ` style="background:${accent};border-color:${accent}"` : '';
       const check = c.habit ? '<span class="cal-check">✓</span>' : '';
       let dots = '';
       if (c.task) dots += '<i class="cal-dot task"></i>';
       if (c.note) dots += '<i class="cal-dot note"></i>';
-      h += `<span class="${cls}" data-date="${ds}"><span class="cal-num">${d}</span>${check}<span class="cal-dots">${dots}</span></span>`;
+      h += `<span class="${cls}" data-date="${ds}"${onStyle}><span class="cal-num">${d}</span>${check}<span class="cal-dots">${dots}</span></span>`;
     }
     return h + '</div></div>';
   }
 
-  // 年度热力：map={'YYYY-MM-DD':count}；颜色按 count/max 主色透明度色阶
+  // 年度热力：map={'YYYY-MM-DD':count}；accent 可指定习惯色（覆盖主色）；附月份标签便于分辨时间
   function yearHeatmap(opts) {
-    const year = opts.year, map = opts.map || {}, max = opts.max || 1;
+    const year = opts.year, map = opts.map || {}, max = opts.max || 1, accent = opts.accent || '';
     const start = new Date(year, 0, 1), end = new Date(year, 11, 31);
     const startW = start.getDay();
     const weeks = []; for (let i = 0; i < 53; i++) weeks.push([null, null, null, null, null, null, null]);
@@ -90,12 +101,28 @@ const PBUI = (function () {
       weeks[w][cur.getDay()] = { ds, cnt, lv };
       cur.setDate(cur.getDate() + 1);
     }
-    let h = '<div class="heatmap"><div class="heat-grid">';
+    const LV = [0.30, 0.55, 0.78, 1];
+    let months = '<div class="heat-months">';
+    let prevMonth = -1;
+    for (let w = 0; w < weeks.length; w++) {
+      const first = weeks[w][0];
+      let label = '';
+      if (first) {
+        const m = new Date(first.ds).getMonth();
+        if (m !== prevMonth) { label = (m + 1) + '月'; prevMonth = m; }
+      }
+      months += `<span class="heat-m">${label}</span>`;
+    }
+    months += '</div>';
+    let h = '<div class="heatmap">' + months + '<div class="heat-grid">';
     for (let w = 0; w < weeks.length; w++) for (let r = 0; r < 7; r++) {
       const cell = weeks[w][r];
-      h += cell ? `<span class="heat-cell lv${cell.lv}" data-date="${cell.ds}" title="${cell.ds}：${cell.cnt} 次"></span>` : '<span class="heat-cell empty"></span>';
+      if (cell) {
+        const style = (accent && cell.lv > 0) ? ` style="background:${hexToRgba(accent, LV[cell.lv - 1])}"` : '';
+        h += `<span class="heat-cell lv${cell.lv}" data-date="${cell.ds}" title="${cell.ds}：${cell.cnt} 次"${style}></span>`;
+      } else h += '<span class="heat-cell empty"></span>';
     }
-    return h + '</div></div>';
+    return h + '</div><p class="muted-note heat-hint">← 左右滑动查看全年 →</p></div>';
   }
 
   function brandMark() {
@@ -251,5 +278,5 @@ const PBUI = (function () {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 
-  return { getNav, renderChrome, applyTheme, toggleTheme, toast, ensureUnlocked, afterUnlockSync, esc, fmtDate, todayStr, emptyHint, secureContextOK, openModal, closeModal, icon, subtabs, ICON, monthCalendar, yearHeatmap };
+  return { getNav, renderChrome, applyTheme, toggleTheme, toast, ensureUnlocked, afterUnlockSync, esc, fmtDate, todayStr, emptyHint, secureContextOK, openModal, closeModal, icon, subtabs, ICON, HABIT_PALETTE, monthCalendar, yearHeatmap };
 })();

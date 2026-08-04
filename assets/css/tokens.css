@@ -21,13 +21,13 @@
   --gap-xs:6px; --gap-sm:10px; --gap:12px; --gap-md:16px; --gap-lg:24px;
   --pad:16px; --maxw:600px;
   /* 模块强调色（各模块主题色，用于图标/页头点缀/统计） */
-  --ac-dashboard:#5B6CFF; --ac-planner:#3B82F6; --ac-snippets:#A56BFF;
+  --ac-dashboard:#5B6CFF; --ac-planner:#3B82F6;
   --ac-finance:#F59E0B; --ac-profile:#FF6B6B;
 }
 html.theme-dark{
   --bg:#0E1220; --surface:#171C2E; --ink:#E8ECF6; --muted:#9AA1B8;
   --primary:#7C8CFF; --accent:#FF7B7B; --success:#34D399; --warn:#FBBF24; --purple:#B98BFF;
   --border:#262B40; --shadow:0 6px 20px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.35); --shadow-md:0 10px 30px rgba(0,0,0,.5);
-  --ac-dashboard:#7C8CFF; --ac-planner:#60A5FA; --ac-snippets:#B98BFF;
+  --ac-dashboard:#7C8CFF; --ac-planner:#60A5FA;
   --ac-finance:#FBBF24; --ac-profile:#FF7B7B;
 }

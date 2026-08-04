@@ -113,8 +113,6 @@
 
   function calendarBlock() {
     const cells = calendarCells();
-    const map = {}; let max = 1;
-    (data().habits || []).forEach(h => (h.checks || []).forEach(d => { map[d] = (map[d] || 0) + 1; max = Math.max(max, map[d]); }));
     return `
       <div class="card">
         <div class="cal-nav"><button id="cal-prev">‹</button><span>${hy}年${hm + 1}月</span><button id="cal-next">›</button></div>
@@ -125,10 +123,6 @@
           <span><i class="cal-dot note"></i>笔记更新</span>
           <span class="muted-note">点日期查看当天事项</span>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><h3 style="margin:0;">全年坚持热力</h3></div>
-        ${PBUI.yearHeatmap({ year: hy, map, max })}
       </div>`;
   }
 

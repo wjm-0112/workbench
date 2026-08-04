@@ -69,11 +69,18 @@
         <button class="btn btn-primary" id="add">+ 新建${sub === 'tasks' ? '任务' : '笔记'}</button>
       </div>
       <div class="toolbar">
-        <input type="search" id="q" placeholder="搜索标题/标签${sub === 'notes' ? '/内容' : ''}" value="${esc(ff.q)}">
-        ${sub === 'tasks' ? `<select id="fStatus"><option value="">全部状态</option>${Object.keys(STATUS).map(k => `<option value="${k}" ${ff.status === k ? 'selected' : ''}>${STATUS[k]}</option>`).join('')}</select>` : ''}
-        <select id="fTag"><option value="">全部分类</option>${tags.map(t => `<option value="${esc(t)}" ${ff.tag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
-        <input type="date" id="fFrom" value="${esc(ff.from)}" title="起始日期（${sub === 'tasks' ? '截止日' : '更新日'}）">
-        <input type="date" id="fTo" value="${esc(ff.to)}" title="截止日期（${sub === 'tasks' ? '截止日' : '更新日'}）">
+        <input type="search" id="q" class="tool-search" placeholder="搜索标题/标签${sub === 'notes' ? '/内容' : ''}" value="${esc(ff.q)}">
+        <div class="tool-row">
+          ${sub === 'tasks' ? `<select id="fStatus"><option value="">全部状态</option>${Object.keys(STATUS).map(k => `<option value="${k}" ${ff.status === k ? 'selected' : ''}>${STATUS[k]}</option>`).join('')}</select>` : ''}
+          <select id="fTag"><option value="">全部分类</option>${tags.map(t => `<option value="${esc(t)}" ${ff.tag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        </div>
+        <div class="date-range">
+          <span class="dr-ico">${PBUI.icon('calendar')}</span>
+          <label class="dr-field"><span>从</span><input type="date" id="fFrom" value="${esc(ff.from)}"></label>
+          <span class="dr-sep">→</span>
+          <label class="dr-field"><span>至</span><input type="date" id="fTo" value="${esc(ff.to)}"></label>
+          ${(ff.from || ff.to) ? `<button class="dr-clear" id="fClear" title="清除日期筛选">✕</button>` : ''}
+        </div>
       </div>
       <div class="batch-bar ${selected.size ? '' : 'hidden'}" id="batch">
         <span class="count">已选 ${selected.size} 项</span>
@@ -93,6 +100,7 @@
     const fst = document.getElementById('fStatus'); if (fst) fst.onchange = e => { f.tasks.status = e.target.value; renderBody(); };
     const ffrom = document.getElementById('fFrom'); if (ffrom) ffrom.onchange = e => { ff.from = e.target.value; renderBody(); };
     const fto = document.getElementById('fTo'); if (fto) fto.onchange = e => { ff.to = e.target.value; renderBody(); };
+    const fclear = document.getElementById('fClear'); if (fclear) fclear.onclick = () => { ff.from = ''; ff.to = ''; renderShell(); };
     const batch = document.getElementById('batch');
     if (batch) {
       const bd = document.getElementById('b-del'); if (bd) bd.onclick = () => { if (!confirm('确定删除选中的 ' + selected.size + ' 项？')) return; if (sub === 'tasks') data().tasks = data().tasks.filter(t => !selected.has(t.id)); else data().notes = data().notes.filter(n => !selected.has(n.id)); selected.clear(); save(); renderBody(); };

@@ -7,8 +7,8 @@
       const d = Admin.data();
       const tasks = d.tasks || [];
       const notes = d.notes || [];
-      const snippets = d.snippets || [];
       const habits = d.habits || [];
+      const savings = d.savings || [];
       const today = new Date().toISOString().slice(0, 10);
       const done = tasks.filter((t) => t.status === 'done').length;
       const overdue = tasks.filter((t) => t.status !== 'done' && t.dueDate && t.dueDate < today).length;
@@ -21,8 +21,8 @@
           ${stat('完成率', rate, '%', 'var(--brand)')}
           ${stat('已逾期', overdue, '项', overdue ? 'var(--warn)' : 'var(--text)')}
           ${stat('笔记', notes.length, '篇')}
-          ${stat('知识库', snippets.length, '条')}
           ${stat('习惯项', habits.length, '个')}
+          ${stat('攒钱笔数', savings.length, '笔')}
         </div>
         <div class="grid split" style="margin-top:16px">
           <div class="card">
@@ -39,7 +39,7 @@
           <div class="chart-box"><canvas id="fin6Chart"></canvas></div>
         </div>`;
       drawTrend(last7(tasks));
-      drawStatus({ 任务: tasks.length, 笔记: notes.length, 知识库: snippets.length, 习惯: habits.length });
+      drawStatus({ 任务: tasks.length, 笔记: notes.length, 习惯: habits.length, 攒钱: savings.length });
       drawFin6(d.finance || []);
     },
   });

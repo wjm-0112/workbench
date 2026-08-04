@@ -12,6 +12,7 @@
   const data = () => PB.getData();
   const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   function curStreak(checks) { const set = new Set(checks); let n = 0; const d = new Date(); const key = () => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; while (set.has(key())) { n++; d.setDate(d.getDate() - 1); } return n; }
+  function habitColor(h, idx) { return (h && h.color) || PBUI.HABIT_PALETTE[idx % PBUI.HABIT_PALETTE.length]; }
 
   // 习惯可视化状态
   let hy = new Date().getFullYear(), hm = new Date().getMonth();
@@ -54,7 +55,7 @@
       <div class="card">
         <h3>快捷入口</h3>
         <div class="quick-grid">
-          <a class="quick-card" href="snippets.html"><span class="qc-ico">${PBUI.icon('book')}</span><span class="qc-label">知识库</span></a>
+          <a class="quick-card" href="planner.html"><span class="qc-ico">${PBUI.icon('layers')}</span><span class="qc-label">综合</span></a>
           <a class="quick-card" href="finance.html"><span class="qc-ico">${PBUI.icon('wallet')}</span><span class="qc-label">财政</span></a>
           <a class="quick-card" href="admin/index.html"><span class="qc-ico">${PBUI.icon('shield')}</span><span class="qc-label">管理台</span></a>
           <a class="quick-card" href="settings.html"><span class="qc-ico">${PBUI.icon('config')}</span><span class="qc-label">设置</span></a>
@@ -83,7 +84,8 @@
       return;
     }
     if (!selHabit || !habits.find(h => h.id === selHabit)) selHabit = habits[0].id;
-    picker.innerHTML = habits.map(h => `<span class="habit-chip ${h.id === selHabit ? 'active' : ''}" data-hid="${h.id}">
+    picker.innerHTML = habits.map((h, i) => `<span class="habit-chip ${h.id === selHabit ? 'active' : ''}" data-hid="${h.id}">
+      <span class="hc-dot" style="background:${habitColor(h, i)}"></span>
       <span class="hc-name">${esc(h.name)}</span><span class="hc-streak">连续 ${curStreak(h.checks || [])}天</span>
       <button class="hc-del" data-hid="${h.id}" title="删除">×</button></span>`).join('');
     picker.querySelectorAll('.habit-chip').forEach(ch => ch.onclick = (e) => {
@@ -103,29 +105,37 @@
 
   function renderHabitView() {
     const view = document.getElementById('habit-view'); if (!view) return;
-    const h = (data().habits || []).find(x => x.id === selHabit); if (!h) return;
+    const habits = data().habits || [];
+    const h = habits.find(x => x.id === selHabit); if (!h) return;
+    const col = habitColor(h, habits.indexOf(h));
     const checks = new Set(h.checks || []);
     if (habitTab === '月历') {
       const cells = {};
       checks.forEach(d => { cells[d] = { habit: true }; });
       view.innerHTML = `
         <div class="cal-nav"><button id="cal-prev">‹</button><span>${hy}年${hm + 1}月</span><button id="cal-next">›</button></div>
-        ${PBUI.monthCalendar({ year: hy, month: hm, cells })}
-        <div class="cal-legend"><span><i class="cal-dot" style="background:var(--primary)"></i>已打卡</span><span><i class="cal-dot" style="background:var(--bg)"></i>未打卡</span><span class="muted-note">点日期切换打卡</span></div>`;
+        ${PBUI.monthCalendar({ year: hy, month: hm, cells, accent: col })}
+        <div class="cal-legend"><span><i class="cal-dot" style="background:${col}"></i>已打卡</span><span><i class="cal-dot" style="background:var(--bg)"></i>未打卡</span><span class="muted-note">点日期打卡；再点取消（会确认）</span></div>`;
       view.querySelectorAll('.cal-cell[data-date]').forEach(c => c.onclick = () => toggleDay(c.dataset.date));
       document.getElementById('cal-prev').onclick = () => { hm--; if (hm < 0) { hm = 11; hy--; } renderHabitView(); };
       document.getElementById('cal-next').onclick = () => { hm++; if (hm > 11) { hm = 0; hy++; } renderHabitView(); };
     } else {
       const map = {}; let max = 1;
       checks.forEach(d => { map[d] = (map[d] || 0) + 1; max = Math.max(max, map[d]); });
-      view.innerHTML = `<div class="muted-note" style="margin-bottom:8px;">${esc(h.name)} · 全年坚持密度（颜色越深当天打卡越多）</div>${PBUI.yearHeatmap({ year: hy, map, max })}`;
+      view.innerHTML = `<div class="muted-note" style="margin-bottom:8px;">${esc(h.name)} · 全年坚持密度（颜色越深当天打卡越多，点格子看日期）</div>${PBUI.yearHeatmap({ year: hy, map, max, accent: col })}`;
+      view.querySelectorAll('.heat-cell[data-date]').forEach(c => c.onclick = () => PBUI.toast(c.title || c.dataset.date));
     }
   }
 
   function toggleDay(dateStr) {
     const h = (data().habits || []).find(x => x.id === selHabit); if (!h) return;
     h.checks = h.checks || []; const i = h.checks.indexOf(dateStr);
-    if (i >= 0) h.checks.splice(i, 1); else h.checks.push(dateStr);
+    if (i >= 0) {
+      if (!confirm(`确定取消「${h.name}」在 ${dateStr} 的打卡吗？`)) return;
+      h.checks.splice(i, 1);
+    } else {
+      h.checks.push(dateStr);
+    }
     PB.touch(h); save(); renderHabits();
   }
 

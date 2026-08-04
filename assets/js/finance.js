@@ -18,6 +18,7 @@
 
   const data = () => PB.getData();
   if (!data().financeGoals) data().financeGoals = [];
+  if (!data().savings) data().savings = [];
   let fType = '', fMonth = '';
   let finTab = '概览';
   let charts = [];
@@ -31,16 +32,17 @@
     const content = document.getElementById('content');
     content.innerHTML = `
       <div class="page-head"><h1>财政</h1><button class="btn btn-primary" id="add">+ 记账</button></div>
-      <div class="toolbar">
-        <input type="month" id="fMonth" value="${esc(fMonth)}" style="max-width:180px;">
-        <select id="fType"><option value="">全部类型</option><option value="income" ${fType === 'income' ? 'selected' : ''}>收入</option><option value="expense" ${fType === 'expense' ? 'selected' : ''}>支出</option></select>
+      <div class="fin-filter">
+        <label class="ff-item"><span class="ff-ico">${PBUI.icon('calendar')}</span><span class="ff-lab">月份</span><input type="month" id="fMonth" value="${esc(fMonth)}"></label>
+        <label class="ff-item"><span class="ff-ico">${PBUI.icon('coins')}</span><span class="ff-lab">类型</span>
+          <select id="fType"><option value="">全部</option><option value="income" ${fType === 'income' ? 'selected' : ''}>收入</option><option value="expense" ${fType === 'expense' ? 'selected' : ''}>支出</option></select></label>
       </div>
       <div id="fin-subtabs"></div>
       <div id="fin-tab"></div>`;
     document.getElementById('add').onclick = () => editRecord(null);
     const fm = document.getElementById('fMonth'); if (fm) fm.onchange = e => { fMonth = e.target.value; renderTab(); };
     const ft = document.getElementById('fType'); if (ft) ft.onchange = e => { fType = e.target.value; renderTab(); };
-    document.getElementById('fin-subtabs').appendChild(PBUI.subtabs(['概览', '趋势', '明细'], finTab, v => { finTab = v; renderTab(); }));
+    document.getElementById('fin-subtabs').appendChild(PBUI.subtabs(['概览', '趋势', '明细', '攒钱'], finTab, v => { finTab = v; renderTab(); }));
     renderTab();
   }
 
@@ -49,7 +51,8 @@
     const tab = document.getElementById('fin-tab'); if (!tab) return;
     if (finTab === '概览') tab.innerHTML = overviewHTML();
     else if (finTab === '趋势') tab.innerHTML = trendHTML();
-    else tab.innerHTML = detailHTML();
+    else if (finTab === '明细') tab.innerHTML = detailHTML();
+    else tab.innerHTML = savingsHTML();
     bindTab();
   }
 
@@ -59,15 +62,17 @@
     const mRecs = monthRecs(d.finance || []);
     const income = mRecs.filter(r => r.type === 'income').reduce((s, r) => s + Number(r.amount || 0), 0);
     const expense = mRecs.filter(r => r.type === 'expense').reduce((s, r) => s + Number(r.amount || 0), 0);
+    const savedTotal = (d.savings || []).reduce((s, r) => s + Number(r.amount || 0), 0);
     const cats = {}; mRecs.filter(r => r.type === 'expense' && (!fType || r.type === fType)).forEach(r => { const k = r.category || '其他'; cats[k] = (cats[k] || 0) + Number(r.amount || 0); });
     const catKeys = Object.keys(cats); const catMax = Math.max(1, ...catKeys.map(k => cats[k]));
     const goals = d.financeGoals || [];
 
     return `
-      <div class="grid-3">
+      <div class="grid-4">
         <div class="stat"><div class="label">收入</div><div class="num flow-in">${money(income)}</div></div>
         <div class="stat"><div class="label">支出</div><div class="num flow-out">${money(expense)}</div></div>
         <div class="stat"><div class="label">结余</div><div class="num">${money(income - expense)}</div></div>
+        <div class="stat"><div class="label">累计攒钱</div><div class="num flow-in">${money(savedTotal)}</div></div>
       </div>
 
       <div class="card">
@@ -123,6 +128,51 @@
       </div>`;
   }
 
+  function savingsHTML() {
+    const list = (data().savings || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    return `
+      <div class="card">
+        <div class="card-head"><h3 style="margin:0;">攒钱记录</h3><button class="btn btn-sm btn-primary" id="add-save">+ 记攒钱</button></div>
+        <div class="rec-list">
+          ${list.length ? list.map(r => `
+            <div class="rec-card" data-id="${r.id}">
+              <div class="rec-top"><span class="rec-date">${esc((r.date || '').slice(5) || '—')}</span><span class="chip in">攒钱</span></div>
+              <div class="rec-mid"><span class="rec-cat">${esc(r.method || '—')}</span><span class="rec-account muted-note">${esc(r.intention || '')}</span></div>
+              <div class="rec-bottom"><span class="rec-amt flow-in">+${money(r.amount)}</span>
+                <span class="rec-actions"><button class="rowbtn" data-sedit="${r.id}">编辑</button><button class="rowbtn danger" data-sdel="${r.id}">删除</button></span></div>
+              ${r.note ? `<div class="rec-note muted-note">${esc(r.note)}</div>` : ''}
+            </div>`).join('') : PBUI.emptyHint('还没有攒钱记录，点「记攒钱」开始积累')}
+        </div>
+      </div>`;
+  }
+
+  function editSaving(id) {
+    const r = id ? data().savings.find(x => x.id === id) : null;
+    const methods = cfg().defaults.savingsMethods || [];
+    PBUI.openModal(`
+      <div class="sheet-grip"></div>
+      <h2>${r ? '编辑攒钱' : '记一笔攒钱'}</h2>
+      <div class="field"><label>金额</label><input type="number" id="s-amount" min="0" step="0.01" value="${esc(r ? r.amount : '')}" placeholder="0.00"></div>
+      <div class="field"><label>存储方式</label><input type="text" id="s-method" list="saveMethods" value="${esc(r ? r.method : '')}" placeholder="现金 / 银行卡 / 支付宝…"><datalist id="saveMethods">${methods.map(m => `<option value="${esc(m)}">`).join('')}</datalist></div>
+      <div class="field"><label>存储意向</label><input type="text" id="s-intention" value="${esc(r ? r.intention : '')}" placeholder="如 旅游基金 / 买房首付"></div>
+      <div class="field"><label>日期</label><input type="date" id="s-date" value="${esc(r ? r.date : new Date().toISOString().slice(0, 10))}"></div>
+      <div class="field"><label>备注</label><input type="text" id="s-note" value="${esc(r ? r.note : '')}" placeholder="可选"></div>
+      <div class="modal-foot"><button class="btn" onclick="PBUI.closeModal()">取消</button><button class="btn btn-primary" id="s-save">保存</button></div>`, 'modal-sheet');
+    document.getElementById('s-save').onclick = () => {
+      const amount = parseFloat(document.getElementById('s-amount').value);
+      if (isNaN(amount) || amount < 0) { PBUI.toast('请输入有效金额'); return; }
+      const obj = {
+        amount,
+        method: document.getElementById('s-method').value.trim(),
+        intention: document.getElementById('s-intention').value.trim(),
+        date: document.getElementById('s-date').value,
+        note: document.getElementById('s-note').value.trim()
+      };
+      if (r) { Object.assign(r, obj); PB.touch(r); } else { obj.id = PB.uid(); data().savings.push(PB.touch(obj)); }
+      save(); PBUI.closeModal(); renderTab();
+    };
+  }
+
   function bindTab() {
     const cat = document.getElementById('cat');
     if (cat && typeof Chart !== 'undefined') {
@@ -152,6 +202,9 @@
     const ag = document.getElementById('add-goal'); if (ag) ag.onclick = () => editGoal(null);
     document.querySelectorAll('[data-gedit]').forEach(b => b.onclick = () => editGoal(b.dataset.gedit));
     document.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => { if (!confirm('确定删除该目标？')) return; data().financeGoals = data().financeGoals.filter(g => g.id !== b.dataset.gdel); save(); renderTab(); });
+    const as = document.getElementById('add-save'); if (as) as.onclick = () => editSaving(null);
+    document.querySelectorAll('[data-sedit]').forEach(b => b.onclick = () => editSaving(b.dataset.sedit));
+    document.querySelectorAll('[data-sdel]').forEach(b => b.onclick = () => { if (!confirm('确定删除该攒钱记录？')) return; data().savings = data().savings.filter(r => r.id !== b.dataset.sdel); save(); renderTab(); });
   }
 
   function editRecord(id) {

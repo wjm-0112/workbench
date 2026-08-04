@@ -47,7 +47,7 @@
           <div class="panel-head"><h2>默认预设 · 财政</h2></div>
           <div class="field"><label>财政分类</label><div class="tag-edit" id="tags-fin">${tagBoxHTML(cfg.defaults.financeCategories || [], 'tags-fin')}</div></div>
           <div class="field"><label>财政账户</label><div class="tag-edit" id="tags-acc">${tagBoxHTML(cfg.defaults.financeAccounts || [], 'tags-acc')}</div></div>
-          <p class="muted">其余预设（任务标签 / 习惯项 / 知识库分类）与配色、模块改名/排序，请在 C 端「我的」页调整。</p>
+          <p class="muted">其余预设（任务标签 / 习惯项 / 存储方式）与配色、模块改名/排序，请在 C 端「设置」页调整。</p>
         </div>`;
 
       const mods = el.querySelector('#mods');

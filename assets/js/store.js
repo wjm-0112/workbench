@@ -23,7 +23,7 @@ const PB = (function () {
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function nowISO() { return new Date().toISOString(); }
   function emptyData() {
-    return { tasks: [], notes: [], snippets: [], habits: [], finance: [], config: null, meta: { version: 1, lastSyncAt: null } };
+    return { tasks: [], notes: [], habits: [], finance: [], savings: [], config: null, meta: { version: 1, lastSyncAt: null } };
   }
 
   /* ---------- 默认配置（双主题 / 模块 / 预设 / 看板 / 同步 / 个人） ---------- */
@@ -39,16 +39,15 @@ const PB = (function () {
     modules: [
       { key:'dashboard', label:'看板', enabled:true, order:1, type:'page', icon:'grid', core:true },
       { key:'planner',  label:'综合', enabled:true, order:2, type:'page', icon:'layers', core:true },
-      { key:'snippets', label:'知识库', enabled:true, order:3, type:'page', icon:'book', core:true },
-      { key:'finance',  label:'财政', enabled:true, order:4, type:'page', icon:'wallet', core:true },
-      { key:'profile',  label:'我的', enabled:true, order:5, type:'page', icon:'user', core:true }
+      { key:'finance',  label:'财政', enabled:true, order:3, type:'page', icon:'wallet', core:true },
+      { key:'profile',  label:'我的', enabled:true, order:4, type:'page', icon:'user', core:true }
     ],
     defaults: {
       taskTags: ['工作','生活','学习'],
       habitItems: ['喝水','读书','运动'],
-      kbCategories: ['通用','前端','后端','API','命令','SQL'],
       financeCategories: ['餐饮','交通','购物','居住','娱乐','医疗','收入','理财','其他'],
-      financeAccounts: ['现金','银行卡','支付宝','微信','投资']
+      financeAccounts: ['现金','银行卡','支付宝','微信','投资'],
+      savingsMethods: ['现金','银行卡','支付宝','微信','定期存款']
     },
     dashboard: { showCards:['pending','dueToday','overdue','habitStreak','monthFlow'], showWeekTrend:true, showCategoryBreakdown:true },
     cloud: { enabled:false, provider:'github', pat:'', owner:'', repo:'', path:'sync/data.json', sha:null },   // GitHub 云同步配置（PAT 存于加密 config 内）
@@ -56,34 +55,15 @@ const PB = (function () {
   };
 
   // 已下线的内置模块（纯前端化后移除，旧加密 blob 里的 modules 需过滤掉）
-  const REMOVED_MODULE_KEYS = new Set(['content', 'orders']);
+  const REMOVED_MODULE_KEYS = new Set(['content', 'orders', 'snippets']);
 
-  /* ---------- 首次解锁预置（默认习惯 + 知识库种子内容） ---------- */
+  // 习惯默认配色（不同习惯用不同颜色区分）
+  const HABIT_PALETTE = ['#5B6CFF', '#1FC79B', '#FFB020', '#A56BFF', '#FF6B6B', '#3B82F6', '#34D399', '#F472B6', '#FBBF24', '#60A5FA'];
+
+  /* ---------- 首次解锁预置（默认习惯，带配色） ---------- */
   function seedDefaults(d) {
     if (!d.habits || !d.habits.length) {
-      d.habits = ['锻炼', '学习', '阅读', '喝水', '早起', '冥想'].map(name => ({ id: uid(), name, checks: [] }));
-    }
-    if (!d.snippets || !d.snippets.length) {
-      d.snippets = [
-        {
-          id: uid(), title: '产品经理 · 核心能力模型', category: '产品经理', tags: ['PM', '方法论', '需求'],
-          summary: '需求分析、PRD、优先级与数据驱动的产品方法论速览',
-          body: '# 产品经理核心能力模型\n\n## 1. 需求分析\n- 区分「用户需求」与「用户问题」，先问 Why\n- 用 Jobs-to-be-Done 思路描述场景与目标\n\n## 2. PRD 要素\n- 背景与目标 / 用户故事 / 功能列表 / 交互与边界 / 数据指标\n- 验收标准（AC）要可度量\n\n## 3. 优先级方法\n- RICE：Reach×Impact×Confidence÷Effort\n- KANO：基本型 / 期望型 / 兴奋型\n\n## 4. 数据驱动\n- 定义北极星指标，拆到可行动的可执行指标',
-          updatedAt: nowISO()
-        },
-        {
-          id: uid(), title: 'AI 大模型基础概念速览', category: 'AI大模型', tags: ['AI', 'LLM', 'RAG'],
-          summary: 'Transformer、预训练、微调与 RAG 的关键概念',
-          body: '# AI 大模型基础概念\n\n## 1. Transformer\n- 自注意力（Self-Attention）取代 RNN，可并行训练\n- 主流架构：仅解码器（GPT 类）/ 编码-解码（T5 类）\n\n## 2. 预训练\n- 在海量语料上做「下一个 token 预测」，习得通用表征\n- 缩放定律（Scaling Law）：参数、数据、算力协同增长\n\n## 3. 微调\n- SFT（监督微调）注入指令遵循能力\n- 偏好对齐：RLHF / DPO\n\n## 4. RAG（检索增强生成）\n- 先检索知识库，再把片段拼进上下文再生成\n- 适合私有知识、可溯源、降低幻觉',
-          updatedAt: nowISO()
-        },
-        {
-          id: uid(), title: '科学健身入门：训练与恢复', category: '运动健身', tags: ['健身', '训练', '恢复'],
-          summary: '训练分化、渐进超负荷与恢复/睡眠要点',
-          body: '# 科学健身入门\n\n## 1. 训练分化\n- 新手可从全身训练（每周 3 次）起步\n- 进阶用上下肢分化或推/拉/腿（PPL）\n\n## 2. 渐进超负荷\n- 逐步增加重量 / 次数 / 组数，让身体持续适应\n- 记录训练日志，避免凭感觉\n\n## 3. 恢复与睡眠\n- 肌肉在休息时生长，保证 7–9 小时睡眠\n- 蛋白质摄入约 1.6–2.2 g/kg 体重\n\n## 4. 安全\n- 热身 + 正确动作模式优先于上重量\n- 关节疼痛立即停，勿硬撑',
-          updatedAt: nowISO()
-        }
-      ];
+      d.habits = ['锻炼', '学习', '阅读', '喝水', '早起', '冥想'].map((name, i) => ({ id: uid(), name, color: HABIT_PALETTE[i % HABIT_PALETTE.length], checks: [] }));
     }
   }
 
@@ -113,8 +93,8 @@ const PB = (function () {
     if (!mods.some(m => m.key === 'finance')) {
       mods.push({ key:'finance', label:'财政', enabled:true, order:4, type:'page', icon:'wallet', core:true });
     }
-    // 规范化：5 个核心模块固定顺序（看板/综合/知识库/财政/我的），自定义外链模块排在后面
-    const CORE_ORDER = { dashboard:1, planner:2, snippets:3, finance:4, profile:5 };
+    // 规范化：4 个核心模块固定顺序（看板/综合/财政/我的），自定义外链模块排在后面
+    const CORE_ORDER = { dashboard:1, planner:2, finance:3, profile:4 };
     mods.forEach(m => { if (CORE_ORDER[m.key] != null) { m.order = CORE_ORDER[m.key]; m.core = true; } });
     let e = 6;
     mods.filter(m => CORE_ORDER[m.key] == null).forEach(m => { if (m.order == null || m.order <= 5) { m.order = e; e++; } });
@@ -122,18 +102,11 @@ const PB = (function () {
     out.modules = mods;
     return out;
   }
-  // 把解密后的旧数据迁移到最新结构：旧 snippets(code→body)、旧明文同步键迁入加密 config
+  // 把解密后的旧数据迁移到最新结构：旧明文同步键迁入加密 config
   function migrateConfig(d) {
     if (!d) d = emptyData();
-    d.tasks = d.tasks || []; d.notes = d.notes || []; d.snippets = d.snippets || []; d.habits = d.habits || []; d.finance = d.finance || [];
+    d.tasks = d.tasks || []; d.notes = d.notes || []; d.habits = d.habits || []; d.finance = d.finance || []; d.savings = d.savings || [];
     d.meta = d.meta || { version: 1, lastSyncAt: null };
-    // 旧「速查」{title,code,lang,tags} → 知识库 {title,summary,body,category,tags}
-    d.snippets.forEach(s => {
-      if (s.code != null && s.body == null) s.body = s.code;
-      if (s.summary == null) s.summary = '';
-      if (s.category == null) s.category = '通用';
-      delete s.code; delete s.lang;
-    });
     d.config = deepMergeConfig(d.config);
     // 清理旧的明文同步键（已废弃）
     try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
@@ -261,7 +234,7 @@ const PB = (function () {
   function cloudCfg() { return (data && data.config && data.config.cloud) || {}; }
   function mergeRemote(remoteData) {
     if (!remoteData || !data) return;
-    ['tasks', 'notes', 'snippets', 'habits', 'finance'].forEach((col) => {
+    ['tasks', 'notes', 'habits', 'finance', 'savings'].forEach((col) => {
       const localMap = new Map((data[col] || []).map((x) => [x.id, x]));
       (remoteData[col] || []).forEach((r) => {
         const l = localMap.get(r.id);
