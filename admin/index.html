@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>管理后台 · 个人工作台</title>
+  <title>管理台 · 个人工作台</title>
   <link rel="stylesheet" href="assets/css/admin.css" />
   <link rel="icon" href="../icon.svg" />
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><span class="logo">P</span> 个人工作台 · 后台</div>
+      <div class="brand"><span class="logo">P</span> 个人工作台 · 管理台</div>
       <nav class="nav" id="nav"></nav>
-      <div class="foot">B 端管理系统 · v1.0</div>
+      <div class="foot">本地管理台 · v2.1</div>
     </aside>
     <div class="main">
       <header class="topbar">
-        <h1 id="pageTitle">数据看板</h1>
+        <h1 id="pageTitle">数据概览</h1>
         <div class="right">
           <button class="btn sm" id="themeBtn" title="切换主题">🌓 主题</button>
           <span class="who" id="who">—</span>
@@ -28,10 +28,12 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/github-sync.js"></script>
   <script src="assets/js/common.js"></script>
   <script src="assets/js/dashboard.js"></script>
-  <script src="assets/js/content.js"></script>
-  <script src="assets/js/users.js"></script>
-  <script src="assets/js/settings.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/about.js"></script>
 </body>
 </html>

@@ -1,30 +1,21 @@
-/* B 端后台 · 公共能力：API、鉴权、主题、Toast、模态、路由 */
+/* 管理台 · 公共能力：解锁校验、主题、Toast、模态、路由（纯前端，读本地加密数据） */
 (function () {
   const Admin = (window.Admin = window.Admin || {});
-  const TOKEN_KEY = 'pwb_admin_token';
 
-  // ---------- 鉴权 ----------
-  Admin.getToken = () => localStorage.getItem(TOKEN_KEY) || '';
-  Admin.setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY));
-  Admin.redirectLogin = () => (location.href = 'login.html');
-
-  // ---------- API ----------
-  Admin.api = async function (path, opts = {}) {
-    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-    const token = Admin.getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const res = await fetch('/api' + path, { method: opts.method || 'GET', headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
-    if (res.status === 401) {
-      Admin.setToken('');
-      Admin.redirectLogin();
-      throw new Error('未登录');
-    }
-    const data = res.status === 204 ? null : await res.json().catch(() => null);
-    if (!res.ok) throw new Error((data && data.error) || '请求失败');
-    return data;
+  /* ---------- 解锁校验（与 C 端同一加密 localStorage） ---------- */
+  Admin.requireUnlocked = async function () {
+    if (await PB.restore()) return true;
+    if (PB.isUnlocked()) return true;
+    location.href = 'login.html';
+    return false;
   };
+  Admin.logout = function () { PB.lock(); location.href = 'login.html'; };
 
-  // ---------- 工具 ----------
+  /* ---------- 数据访问（本地） ---------- */
+  Admin.data = () => PB.getData();
+  Admin.config = () => PB.getConfig();
+
+  /* ---------- 工具 ---------- */
   Admin.esc = (s) =>
     String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -33,7 +24,7 @@
       .replace(/"/g, '&quot;');
   Admin.fmtDate = (s) => (s ? s.slice(0, 10) : '-');
 
-  // ---------- Toast ----------
+  /* ---------- Toast ---------- */
   Admin.toast = function (msg, type = '') {
     let wrap = document.querySelector('.toast-wrap');
     if (!wrap) {
@@ -48,7 +39,7 @@
     setTimeout(() => el.remove(), 2600);
   };
 
-  // ---------- 模态 ----------
+  /* ---------- 模态 ---------- */
   Admin.modal = function (title, bodyHtml, onOk) {
     document.querySelectorAll('.modal-mask').forEach((m) => m.remove());
     const mask = document.createElement('div');
@@ -64,7 +55,7 @@
     return mask;
   };
 
-  // ---------- 主题 ----------
+  /* ---------- 主题（管理台独立外观） ---------- */
   Admin.applyTheme = function (t) {
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('pwb_admin_theme', t);
@@ -75,35 +66,23 @@
     return cur;
   };
 
-  // ---------- 路由 / 外壳 ----------
+  /* ---------- 路由 / 外壳 ---------- */
   const SECTIONS = (Admin.sections = {});
   Admin.register = function (key, def) { SECTIONS[key] = def; };
 
-  Admin.boot = function () {
-    if (!Admin.getToken()) return Admin.redirectLogin();
-    Admin.applyTheme(localStorage.getItem('pwb_admin_theme') || 'light');
+  Admin.boot = async function () {
+    if (!(await Admin.requireUnlocked())) return;
+    Admin.applyTheme(localStorage.getItem('pwb_admin_theme') || (Admin.config().theme && Admin.config().theme.mode) || 'light');
 
-    // 侧栏
     const nav = document.getElementById('nav');
     nav.innerHTML = Object.keys(SECTIONS)
       .map((k) => `<a data-k="${k}"><span class="ico">${SECTIONS[k].icon || '•'}</span><span>${SECTIONS[k].title}</span></a>`)
       .join('');
-    nav.querySelectorAll('a').forEach((a) =>
-      (a.onclick = () => { location.hash = a.dataset.k; })
-    );
+    nav.querySelectorAll('a').forEach((a) => (a.onclick = () => { location.hash = a.dataset.k; }));
 
-    // 顶栏
-    document.getElementById('logout').onclick = async () => {
-      try { await Admin.api('/auth/logout', { method: 'POST' }); } catch (e) {}
-      Admin.setToken('');
-      Admin.redirectLogin();
-    };
+    document.getElementById('logout').onclick = () => Admin.logout();
     document.getElementById('themeBtn').onclick = () => Admin.toggleTheme();
-
-    // 当前用户
-    Admin.api('/auth/me')
-      .then((d) => { document.getElementById('who').textContent = d.user.displayName + '（' + d.user.role + '）'; })
-      .catch(() => {});
+    document.getElementById('who').textContent = (Admin.config().profile && Admin.config().profile.userName) || '我';
 
     const route = () => {
       const key = (location.hash || '').slice(1) || Object.keys(SECTIONS)[0];
@@ -119,7 +98,6 @@
     route();
   };
 
-  // 自动引导（脚本置于 body 末尾，注册已完成）
   if (document.readyState !== 'loading') Admin.boot();
   else document.addEventListener('DOMContentLoaded', () => Admin.boot());
 })();

@@ -1,9 +1,9 @@
 /* ===== 个人工作台 · 数据层（C 端） =====
- * 本地存储 + AES-GCM/PBKDF2 加密（随机盐）+ 后端云同步 + 导出导入 + 配置
+ * 本地存储 + AES-GCM/PBKDF2 加密（随机盐）+ GitHub 仓库云同步 + 导出导入 + 配置
  * 暴露全局对象 PB
  *
- * 云同步说明：数据仍以「访问密码」做客户端加密（端到端，服务端只见密文）；
- * 登录账号仅作为把加密 blob 传到后端 / 跨设备拉取的「传输凭证」，与加密密码分离。
+ * 云同步说明：数据以「访问密码」做客户端端到端加密（随机盐），密文存到 GitHub 仓库文件；
+ * GitHub 令牌(PAT) 仅作为把加密 blob 传到仓库的「传输凭证」，与加密密码分离，服务端只见密文。
  */
 const PB = (function () {
   const STORAGE_KEY = 'pwb_data_v1';
@@ -18,7 +18,6 @@ const PB = (function () {
   let data = null;        // 解密后的数据对象
   let saveTimer = null;
   let syncTimer = null;
-  let cloudToken = localStorage.getItem('pwb_cloud_token') || null;
 
   /* ---------- 工具 ---------- */
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -39,12 +38,10 @@ const PB = (function () {
     },
     modules: [
       { key:'dashboard', label:'看板', enabled:true, order:1, type:'page', icon:'grid', core:true },
-      { key:'content',   label:'内容', enabled:true, order:2, type:'page', icon:'news', core:true },
-      { key:'tasks',    label:'任务', enabled:true, order:3, type:'page', icon:'check', core:true },
-      { key:'notes',    label:'笔记', enabled:true, order:4, type:'page', icon:'note', core:true },
-      { key:'snippets', label:'知识库', enabled:true, order:5, type:'page', icon:'book', core:true },
-      { key:'orders',   label:'商城', enabled:true, order:6, type:'page', icon:'cart', core:true },
-      { key:'profile',  label:'我的', enabled:true, order:7, type:'page', icon:'user', core:true }
+      { key:'tasks',    label:'任务', enabled:true, order:2, type:'page', icon:'check', core:true },
+      { key:'notes',    label:'笔记', enabled:true, order:3, type:'page', icon:'note', core:true },
+      { key:'snippets', label:'知识库', enabled:true, order:4, type:'page', icon:'book', core:true },
+      { key:'profile',  label:'我的', enabled:true, order:5, type:'page', icon:'user', core:true }
     ],
     defaults: {
       taskTags: ['工作','生活','学习'],
@@ -52,9 +49,12 @@ const PB = (function () {
       kbCategories: ['通用','前端','后端','API','命令','SQL']
     },
     dashboard: { showCards:['pending','dueToday','overdue','habitStreak'], showWeekTrend:true, showCategoryBreakdown:true },
-    cloud: { enabled:false },   // 后端云同步开关（账号登录后生效）
+    cloud: { enabled:false, provider:'github', pat:'', owner:'', repo:'', path:'sync/data.json', sha:null },   // GitHub 云同步配置（PAT 存于加密 config 内）
     profile: { userName:'我', role:'会员' }
   };
+
+  // 已下线的内置模块（纯前端化后移除，旧加密 blob 里的 modules 需过滤掉）
+  const REMOVED_MODULE_KEYS = new Set(['content', 'orders']);
 
   /* ---------- 配置合并 / 迁移 ---------- */
   function deepMergeConfig(target) {
@@ -69,7 +69,7 @@ const PB = (function () {
     out.profile   = Object.assign({}, DEFAULT_CONFIG.profile, target.profile || {});
     out.siteName  = target.siteName || DEFAULT_CONFIG.siteName;
     out.modules   = (target.modules && Array.isArray(target.modules) && target.modules.length)
-      ? target.modules
+      ? target.modules.filter(m => m && !REMOVED_MODULE_KEYS.has(m.key))
       : DEFAULT_CONFIG.modules.map(m => Object.assign({}, m));
     return out;
   }
@@ -206,14 +206,9 @@ const PB = (function () {
   function setConfig(cfg) { if (!data) return; data.config = cfg; save(); }
   function updateConfig(fn) { const c = getConfig(); fn(c); setConfig(c); }
 
-  /* ---------- 后端云同步（账号登录后，把加密 blob 传后端，端到端加密） ---------- */
+  /* ---------- 云端同步（GitHub 仓库文件，端到端加密） ---------- */
   function cloudEnabled() { return !!(data && data.config && data.config.cloud && data.config.cloud.enabled); }
-  function setCloudToken(t) {
-    cloudToken = t || null;
-    if (cloudToken) localStorage.setItem('pwb_cloud_token', cloudToken);
-    else localStorage.removeItem('pwb_cloud_token');
-  }
-  function getCloudToken() { return cloudToken; }
+  function cloudCfg() { return (data && data.config && data.config.cloud) || {}; }
   function mergeRemote(remoteData) {
     if (!remoteData || !data) return;
     ['tasks', 'notes', 'snippets', 'habits'].forEach((col) => {
@@ -227,33 +222,31 @@ const PB = (function () {
     data.meta = Object.assign({}, data.meta, remoteData.meta || {});
   }
   async function cloudPush() {
-    if (!cloudEnabled() || !cloudToken || !accessPassword) return { ok: false, reason: 'disabled' };
+    const c = cloudCfg();
+    if (!cloudEnabled() || !c.pat || !accessPassword) return { ok: false, reason: 'disabled' };
     try {
       const blob = await encryptObj(data, accessPassword);
-      const res = await fetch('/api/sync/blob', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cloudToken },
-        body: JSON.stringify({ blob })
-      });
-      if (!res.ok) throw new Error('上传失败 ' + res.status);
+      const r = await GitHubSync.githubPush({ pat: c.pat, owner: c.owner, repo: c.repo, path: c.path || 'sync/data.json', b64: blob, sha: c.sha || null });
+      c.sha = r.sha;                 // 记录 sha，下次更新用（GitHub 要求）
       data.meta.lastSyncAt = nowISO();
       return { ok: true };
     } catch (e) { return { ok: false, reason: e.message }; }
   }
   async function cloudPull() {
-    if (!cloudEnabled() || !cloudToken || !accessPassword) return { ok: false, reason: 'disabled' };
+    const c = cloudCfg();
+    if (!cloudEnabled() || !c.pat || !accessPassword) return { ok: false, reason: 'disabled' };
     try {
-      const res = await fetch('/api/sync/blob', { headers: { Authorization: 'Bearer ' + cloudToken } });
-      if (res.status === 204) return { ok: true, pulled: false };
-      const j = await res.json();
-      const remoteData = await decryptObj(j.blob, accessPassword);
+      const r = await GitHubSync.githubPull({ pat: c.pat, owner: c.owner, repo: c.repo, path: c.path || 'sync/data.json' });
+      if (r.missing) return { ok: true, pulled: false, missing: true };
+      const remoteData = await decryptObj(r.b64, accessPassword);
+      c.sha = r.sha;
       mergeRemote(remoteData);
       await persist();
       return { ok: true, pulled: true };
     } catch (e) { return { ok: false, reason: e.message }; }
   }
   function scheduleSync() {
-    if (!cloudEnabled() || !cloudToken) return;
+    if (!cloudEnabled() || !cloudCfg().pat) return;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => { cloudPush().then(() => {}); }, 1500);
   }
@@ -283,7 +276,7 @@ const PB = (function () {
     unlock, isUnlocked, lock, getData, restore, migrateConfig,
     save, saveNow, hasLocal,
     getConfig, setConfig, updateConfig,
-    cloudPush, cloudPull, setCloudToken, getCloudToken, cloudEnabled,
+    cloudPush, cloudPull, cloudEnabled,
     exportJSON, importJSON, changePassword
   };
 })();

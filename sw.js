@@ -1,9 +1,20 @@
-const CACHE = 'pwb-v3';
+const CACHE = 'pwb-v4';
 const ASSETS = [
+  // C 端页面
   './', './index.html', './tasks.html', './notes.html', './snippets.html', './profile.html',
-  './assets/css/style.css',
-  './assets/js/store.js', './assets/js/common.js', './assets/js/tasks.js',
-  './assets/js/notes.js', './assets/js/snippets.js', './assets/js/dashboard.js', './assets/js/profile.js',
+  // C 端样式（设计令牌 + 主样式）
+  './assets/css/tokens.css', './assets/css/style.css',
+  // C 端脚本（含 GitHub 云同步）
+  './assets/js/store.js', './assets/js/github-sync.js', './assets/js/common.js',
+  './assets/js/tasks.js', './assets/js/notes.js', './assets/js/snippets.js',
+  './assets/js/dashboard.js', './assets/js/profile.js',
+  // 管理台（admin/，复用根 assets/js/store.js、github-sync.js）
+  './admin/index.html', './admin/login.html',
+  './admin/assets/css/admin.css',
+  './admin/assets/js/common.js', './admin/assets/js/auth.js',
+  './admin/assets/js/dashboard.js', './admin/assets/js/data.js',
+  './admin/assets/js/config.js', './admin/assets/js/about.js',
+  // 元信息
   './manifest.webmanifest', './icon.svg'
 ];
 

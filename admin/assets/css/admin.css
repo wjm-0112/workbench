@@ -159,3 +159,4 @@ tbody tr:hover { background: var(--surface-2); }
 @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
 .toolbar .spacer { flex: 1; }
+.check, .radio { display: inline-flex; align-items: center; gap: 6px; margin: 8px 16px 8px 0; font-size: 14px; cursor: pointer; }

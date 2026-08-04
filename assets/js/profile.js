@@ -47,28 +47,23 @@
   }
 
   function cloudAreaHTML() {
-    const token = PB.getCloudToken();
-    const cloudUser = localStorage.getItem('pwb_cloud_user') || '';
-    const enabled = !!(cfg().cloud && cfg().cloud.enabled);
-    if (token) {
-      const lastSync = (PB.getData().meta && PB.getData().meta.lastSyncAt) ? new Date(PB.getData().meta.lastSyncAt).toLocaleString('zh-CN') : '尚未同步';
-      return `
-        <div class="cfg-row"><label>已登录账号</label><b>${esc(cloudUser)}</b></div>
-        <div class="cfg-row"><label>启用云同步</label><input type="checkbox" id="cloud-en" ${enabled ? 'checked' : ''}></div>
-        <div class="cfg-row">
-          <button class="btn btn-primary" id="btn-push">立即同步（上传）</button>
-          <button class="btn" id="btn-pull">拉取同步</button>
-          <button class="btn btn-accent" id="btn-logout">退出账号</button>
-        </div>
-        <div class="muted-note">最近同步：${esc(lastSync)}</div>`;
-    }
+    const c = cfg().cloud || {};
+    const enabled = !!(c.enabled);
+    const lastSync = (PB.getData().meta && PB.getData().meta.lastSyncAt) ? new Date(PB.getData().meta.lastSyncAt).toLocaleString('zh-CN') : '尚未同步';
     return `
-      <div class="cfg-row"><label>账号</label><input type="text" id="cl-user" placeholder="用户名" style="max-width:220px;"></div>
-      <div class="cfg-row"><label>密码</label><input type="password" id="cl-pass" placeholder="密码" style="max-width:220px;"></div>
+      <div class="cfg-row"><label>启用云同步</label><input type="checkbox" id="cloud-en" ${enabled ? 'checked' : ''}></div>
+      <div class="cfg-row"><label>GitHub 令牌(PAT)</label><input type="password" id="cl-pat" placeholder="ghp_... 或 github_pat_..." style="max-width:320px;" value="${esc(c.pat || '')}"></div>
+      <div class="cfg-row"><label>仓库 owner</label><input type="text" id="cl-owner" placeholder="用户名或组织" style="max-width:200px;" value="${esc(c.owner || '')}"></div>
+      <div class="cfg-row"><label>仓库名 repo</label><input type="text" id="cl-repo" placeholder="仓库名" style="max-width:200px;" value="${esc(c.repo || '')}"></div>
+      <div class="cfg-row"><label>文件路径</label><input type="text" id="cl-path" placeholder="sync/data.json" style="max-width:240px;" value="${esc(c.path || 'sync/data.json')}"></div>
       <div class="cfg-row">
-        <button class="btn btn-primary" id="btn-login">登录并开启同步</button>
-        <button class="btn" id="btn-reg">注册新账号</button>
-      </div>`;
+        <button class="btn" id="btn-test">测试连接</button>
+        <button class="btn btn-primary" id="btn-push">立即上传</button>
+        <button class="btn" id="btn-pull">拉取合并</button>
+        <button class="btn btn-accent" id="btn-clear">清除配置</button>
+      </div>
+      <div class="muted-note">最近同步：${esc(lastSync)}</div>
+      <p class="hint">数据已用访问密码端到端加密，令牌仅作传输凭证，可安全存于本仓库。建议使用<strong>细粒度 PAT</strong>，仅授权该仓库 Contents 读写。</p>`;
   }
 
   function render() {
@@ -94,11 +89,10 @@
 
       <div class="cfg-section">
         <h3>快捷入口</h3>
-        <p class="hint">底部 Tab 默认展示看板 / 内容 / 任务 / 笔记 / 我的 共 5 项，以下模块同样可用。</p>
+        <p class="hint">底部 Tab 展示看板 / 任务 / 笔记 / 知识库 / 我的；「管理台」为桌面端管理页面。</p>
         <div class="quick-grid">
           <a class="quick-card" href="snippets.html"><span class="qc-ico">📚</span><span class="qc-label">知识库</span></a>
-          <a class="quick-card" href="orders.html"><span class="qc-ico">🛒</span><span class="qc-label">商城</span></a>
-          <a class="quick-card" href="content.html"><span class="qc-ico">📰</span><span class="qc-label">内容</span></a>
+          <a class="quick-card" href="admin/index.html"><span class="qc-ico">🖥️</span><span class="qc-label">管理台</span></a>
         </div>
       </div>
 
@@ -111,8 +105,8 @@
       </div>
 
       <div class="cfg-section">
-        <h3>云端同步（账号）</h3>
-        <p class="hint">登录账号后，加密数据可跨设备同步（服务端只见密文，密码不离开浏览器）。不登录也能正常使用本地版。</p>
+        <h3>云端同步（GitHub）</h3>
+        <p class="hint">配置 GitHub 个人令牌(PAT) 后，加密数据会存到你指定仓库的文件里，实现跨设备同步。数据用访问密码端到端加密，令牌仅作传输凭证。</p>
         <div id="cloud-area">${cloudAreaHTML()}</div>
       </div>
 
@@ -268,56 +262,38 @@
 
   function bindCloud() {
     const c = cfg();
+    if (!c.cloud) c.cloud = {};
     const area = document.getElementById('cloud-area');
     if (!area) return;
-    if (PB.getCloudToken()) {
-      const en = document.getElementById('cloud-en');
-      if (en) en.onchange = () => { if (!c.cloud) c.cloud = {}; c.cloud.enabled = en.checked; save(); };
-      const push = document.getElementById('btn-push');
-      if (push) push.onclick = async () => { const r = await PB.cloudPush(); PBUI.toast(r.ok ? '已同步上传' : ('失败：' + (r.reason || ''))); if (r.ok) render(); };
-      const pull = document.getElementById('btn-pull');
-      if (pull) pull.onclick = async () => { const r = await PB.cloudPull(); PBUI.toast(r.ok ? (r.pulled ? '已拉取并合并' : '已是最新') : ('失败：' + (r.reason || ''))); if (r.ok) render(); };
-      const out = document.getElementById('btn-logout');
-      if (out) out.onclick = () => { PB.setCloudToken(null); localStorage.removeItem('pwb_cloud_user'); PBUI.toast('已退出账号'); render(); };
-    } else {
-      const login = document.getElementById('btn-login');
-      if (login) login.onclick = async () => {
-        const u = document.getElementById('cl-user').value.trim(), p = document.getElementById('cl-pass').value;
-        if (!u || !p) { PBUI.toast('请输入账号和密码'); return; }
-        try {
-          const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
-          const j = await res.json();
-          if (!res.ok) throw new Error(j.error || '登录失败');
-          PB.setCloudToken(j.token); localStorage.setItem('pwb_cloud_user', u);
-          if (!c.cloud) c.cloud = {}; c.cloud.enabled = true; save();
-          PBUI.toast('登录成功，已开启云同步', 'ok'); render();
-        } catch (e) { PBUI.toast(e.message, 'err'); }
-      };
-      const reg = document.getElementById('btn-reg');
-      if (reg) reg.onclick = () => registerModal();
-    }
-  }
-
-  function registerModal() {
-    PBUI.openModal(`
-      <h2>注册新账号</h2>
-      <div class="field"><label>用户名</label><input type="text" id="rg-u"></div>
-      <div class="field"><label>显示名</label><input type="text" id="rg-d"></div>
-      <div class="field"><label>密码（≥6 位）</label><input type="password" id="rg-p"></div>
-      <div class="gate-err" id="rg-err"></div>
-      <div class="modal-foot"><button class="btn" onclick="PBUI.closeModal()">取消</button><button class="btn btn-primary" id="rg-go">注册</button></div>`);
-    document.getElementById('rg-go').onclick = async () => {
-      const u = document.getElementById('rg-u').value.trim(), p = document.getElementById('rg-p').value, d = document.getElementById('rg-d').value.trim() || u;
-      const err = document.getElementById('rg-err');
-      if (!u || !p) { err.textContent = '请输入账号和密码'; return; }
-      try {
-        const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p, displayName: d }) });
-        const j = await res.json();
-        if (!res.ok) throw new Error(j.error || '注册失败');
-        PB.setCloudToken(j.token); localStorage.setItem('pwb_cloud_user', u);
-        const c = cfg(); if (!c.cloud) c.cloud = {}; c.cloud.enabled = true; save();
-        PBUI.closeModal(); PBUI.toast('注册成功，已开启云同步', 'ok'); render();
-      } catch (e) { err.textContent = e.message; }
+    const en = document.getElementById('cloud-en');
+    if (en) en.onchange = () => { c.cloud.enabled = en.checked; save(); };
+    const setField = (id, key) => {
+      const el = document.getElementById(id);
+      if (el) el.oninput = () => { c.cloud[key] = el.value.trim(); save(); };
+    };
+    setField('cl-pat', 'pat'); setField('cl-owner', 'owner'); setField('cl-repo', 'repo'); setField('cl-path', 'path');
+    const test = document.getElementById('btn-test');
+    if (test) test.onclick = async () => {
+      if (!c.cloud.pat || !c.cloud.owner || !c.cloud.repo) { PBUI.toast('请先填令牌、owner、repo'); return; }
+      try { const r = await GitHubSync.testConnection({ pat: c.cloud.pat, owner: c.cloud.owner, repo: c.cloud.repo }); PBUI.toast('连接成功：' + (r.name || ''), 'ok'); }
+      catch (e) { PBUI.toast('连接失败：' + e.message, 'err'); }
+    };
+    const push = document.getElementById('btn-push');
+    if (push) push.onclick = async () => {
+      if (!c.cloud.pat || !c.cloud.owner || !c.cloud.repo) { PBUI.toast('请先填写 GitHub 配置'); return; }
+      const r = await PB.cloudPush(); PBUI.toast(r.ok ? '已上传到 GitHub' : ('失败：' + (r.reason || '')), r.ok ? 'ok' : 'err'); if (r.ok) render();
+    };
+    const pull = document.getElementById('btn-pull');
+    if (pull) pull.onclick = async () => {
+      if (!c.cloud.pat || !c.cloud.owner || !c.cloud.repo) { PBUI.toast('请先填写 GitHub 配置'); return; }
+      const r = await PB.cloudPull();
+      PBUI.toast(r.ok ? (r.pulled ? '已拉取并合并' : (r.missing ? '远端暂无数据' : '已是最新')) : ('失败：' + (r.reason || '')), r.ok ? 'ok' : 'err');
+      if (r.ok) render();
+    };
+    const clear = document.getElementById('btn-clear');
+    if (clear) clear.onclick = () => {
+      c.cloud = { enabled: false, provider: 'github', pat: '', owner: '', repo: '', path: 'sync/data.json', sha: null };
+      save(); PBUI.toast('已清除同步配置'); render();
     };
   }
 

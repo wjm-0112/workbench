@@ -11,9 +11,8 @@ Desktop.ini
 *.local.json
 backup-*.json
 
-# 后端：依赖与运行时数据（首次启动自动 npm install + 自动 seed，勿提交）
-server/node_modules/
-server/data/
+# 后端已移除（纯前端架构）；若本地仍残留 server/ 目录，忽略之
+server/
 *.log
 .env
 .env.*
