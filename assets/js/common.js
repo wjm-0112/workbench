@@ -14,8 +14,89 @@ const PBUI = (function () {
     link:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-5.7-5.7L11 8"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 5.7 5.7L13 16"/></svg>',
     star:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.8L6.6 19.6l1-6L3.3 9.4l6-.9z"/></svg>',
     sun:   '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>',
-    moon:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg>'
+    moon:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg>',
+    habit: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    trend: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 7-7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 8h6v6"/></svg>',
+    shield:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    tag:   '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12V4h8l9 9-8 8z"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg>',
+    calendar:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+    image: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>',
+    cloud: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A3.5 3.5 0 0 1 18 18z"/></svg>',
+    sync:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-15 6.7L3 16" stroke-linecap="round"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8" stroke-linecap="round"/><path d="M21 4v4h-4M3 20v-4h4"/></svg>',
+    download:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 11l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 21h16"/></svg>',
+    trash: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    edit:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z" stroke-linejoin="round"/><path d="M14 6l4 4"/></svg>',
+    plus:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>',
+    chevron:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    search:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>',
+    list:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+    flag:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4h11l-2 4 2 4H5" stroke-linejoin="round"/></svg>',
+    coins: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
+    lock:  '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
   };
+
+  function icon(name) { return ICON[name] || ICON.grid; }
+
+  // 顶部子 tab（与 planner 现有 .subtabs 视觉一致）；onSwitch(label) 在切换时回调
+  function subtabs(items, active, onSwitch) {
+    const wrap = document.createElement('div');
+    wrap.className = 'subtabs';
+    wrap.innerHTML = items.map(it => `<button type="button" class="subtab${it === active ? ' active' : ''}" data-sub="${esc(it)}">${esc(it)}</button>`).join('');
+    wrap.querySelectorAll('.subtab').forEach(b => b.onclick = () => {
+      const v = b.dataset.sub;
+      if (v === active) return;
+      active = v;
+      wrap.querySelectorAll('.subtab').forEach(x => x.classList.toggle('active', x.dataset.sub === v));
+      if (onSwitch) onSwitch(v);
+    });
+    return wrap;
+  }
+
+  // 月历：cells={'YYYY-MM-DD':{habit:bool,task:number,note:number}}；点击由调用方用 .cal-cell[data-date] 委托绑定
+  function monthCalendar(opts) {
+    const year = opts.year, month = opts.month, cells = opts.cells || {};
+    const startW = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    const wd = ['日', '一', '二', '三', '四', '五', '六'];
+    const t = todayStr();
+    let h = '<div class="cal"><div class="cal-head">' + wd.map(w => `<span>${w}</span>`).join('') + '</div><div class="cal-grid">';
+    for (let i = 0; i < startW; i++) h += '<span class="cal-cell empty"></span>';
+    for (let d = 1; d <= days; d++) {
+      const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const c = cells[ds] || {};
+      let cls = 'cal-cell'; if (c.habit) cls += ' on'; if (ds === t) cls += ' today';
+      const check = c.habit ? '<span class="cal-check">✓</span>' : '';
+      let dots = '';
+      if (c.task) dots += '<i class="cal-dot task"></i>';
+      if (c.note) dots += '<i class="cal-dot note"></i>';
+      h += `<span class="${cls}" data-date="${ds}"><span class="cal-num">${d}</span>${check}<span class="cal-dots">${dots}</span></span>`;
+    }
+    return h + '</div></div>';
+  }
+
+  // 年度热力：map={'YYYY-MM-DD':count}；颜色按 count/max 主色透明度色阶
+  function yearHeatmap(opts) {
+    const year = opts.year, map = opts.map || {}, max = opts.max || 1;
+    const start = new Date(year, 0, 1), end = new Date(year, 11, 31);
+    const startW = start.getDay();
+    const weeks = []; for (let i = 0; i < 53; i++) weeks.push([null, null, null, null, null, null, null]);
+    const cur = new Date(start);
+    while (cur <= end) {
+      const doy = Math.round((cur - new Date(year, 0, 1)) / 864e5);
+      const w = Math.floor((doy + startW) / 7);
+      const ds = `${year}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+      const cnt = map[ds] || 0;
+      const lv = cnt <= 0 ? 0 : Math.min(4, Math.ceil((cnt / max) * 4));
+      weeks[w][cur.getDay()] = { ds, cnt, lv };
+      cur.setDate(cur.getDate() + 1);
+    }
+    let h = '<div class="heatmap"><div class="heat-grid">';
+    for (let w = 0; w < weeks.length; w++) for (let r = 0; r < 7; r++) {
+      const cell = weeks[w][r];
+      h += cell ? `<span class="heat-cell lv${cell.lv}" data-date="${cell.ds}" title="${cell.ds}：${cell.cnt} 次"></span>` : '<span class="heat-cell empty"></span>';
+    }
+    return h + '</div></div>';
+  }
 
   function brandMark() {
     return `<svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -154,9 +235,10 @@ const PBUI = (function () {
   function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function emptyHint(text) { return `<div class="empty">${brandMark()}<p>${esc(text)}</p></div>`; }
 
-  function openModal(html) {
+  function openModal(html, cls) {
     const m = document.getElementById('modal-mask');
-    m.innerHTML = `<div class="modal">${html}</div>`;
+    m.innerHTML = `<div class="modal${cls ? ' ' + cls : ''}">${html}</div>`;
+    m.classList.toggle('sheet-mode', !!cls && cls.indexOf('modal-sheet') >= 0);
     m.classList.add('show');
     m.onclick = e => { if (e.target === m) closeModal(); };
   }
@@ -169,5 +251,5 @@ const PBUI = (function () {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 
-  return { getNav, renderChrome, applyTheme, toggleTheme, toast, ensureUnlocked, afterUnlockSync, esc, fmtDate, todayStr, emptyHint, secureContextOK, openModal, closeModal };
+  return { getNav, renderChrome, applyTheme, toggleTheme, toast, ensureUnlocked, afterUnlockSync, esc, fmtDate, todayStr, emptyHint, secureContextOK, openModal, closeModal, icon, subtabs, ICON, monthCalendar, yearHeatmap };
 })();

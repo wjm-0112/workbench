@@ -47,7 +47,8 @@ const PB = (function () {
       taskTags: ['工作','生活','学习'],
       habitItems: ['喝水','读书','运动'],
       kbCategories: ['通用','前端','后端','API','命令','SQL'],
-      financeCategories: ['餐饮','交通','购物','居住','娱乐','医疗','收入','理财','其他']
+      financeCategories: ['餐饮','交通','购物','居住','娱乐','医疗','收入','理财','其他'],
+      financeAccounts: ['现金','银行卡','支付宝','微信','投资']
     },
     dashboard: { showCards:['pending','dueToday','overdue','habitStreak','monthFlow'], showWeekTrend:true, showCategoryBreakdown:true },
     cloud: { enabled:false, provider:'github', pat:'', owner:'', repo:'', path:'sync/data.json', sha:null },   // GitHub 云同步配置（PAT 存于加密 config 内）

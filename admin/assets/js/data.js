@@ -2,7 +2,7 @@
 (function () {
   Admin.register('data', {
     title: '数据管理',
-    icon: '💾',
+    icon: 'data',
     render(el) {
       const d = Admin.data();
       const cfg = Admin.config();

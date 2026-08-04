@@ -20,7 +20,7 @@
   const data = () => PB.getData();
   let sub = 'tasks';                 // 'tasks' | 'notes'
   let selected = new Set();
-  const f = { tasks: { q: '', status: '', tag: '' }, notes: { q: '', tag: '' } };
+  const f = { tasks: { q: '', status: '', tag: '', from: '', to: '' }, notes: { q: '', tag: '', from: '', to: '' } };
   let sortKey = 'due', sortDir = 1;
   let noteSort = 'updated', noteDir = -1;
 
@@ -33,6 +33,8 @@
     if (ff.q) { const low = ff.q.toLowerCase(); list = list.filter(t => (t.title || '').toLowerCase().includes(low) || (t.tags || []).join(' ').toLowerCase().includes(low)); }
     if (ff.status) list = list.filter(t => t.status === ff.status);
     if (ff.tag) list = list.filter(t => (t.tags || []).includes(ff.tag));
+    if (ff.from) list = list.filter(t => t.due && t.due >= ff.from);
+    if (ff.to) list = list.filter(t => t.due && t.due <= ff.to);
     list.sort((a, b) => {
       let va, vb;
       if (sortKey === 'title') { va = a.title || ''; vb = b.title || ''; return va.localeCompare(vb, 'zh') * sortDir; }
@@ -47,6 +49,8 @@
     const ff = f.notes;
     if (ff.q) { const low = ff.q.toLowerCase(); list = list.filter(n => (n.title || '').toLowerCase().includes(low) || (n.body || '').toLowerCase().includes(low) || (n.tags || []).join(' ').toLowerCase().includes(low)); }
     if (ff.tag) list = list.filter(n => (n.tags || []).includes(ff.tag));
+    if (ff.from) list = list.filter(n => (n.updatedAt || '').slice(0, 10) >= ff.from);
+    if (ff.to) list = list.filter(n => (n.updatedAt || '').slice(0, 10) <= ff.to);
     list.sort((a, b) => { let va = a.updatedAt || '', vb = b.updatedAt || ''; if (noteSort === 'title') { va = a.title || ''; vb = b.title || ''; return va.localeCompare(vb, 'zh') * noteDir; } return (va < vb ? -1 : va > vb ? 1 : 0) * noteDir; });
     return list;
   }
@@ -68,6 +72,8 @@
         <input type="search" id="q" placeholder="搜索标题/标签${sub === 'notes' ? '/内容' : ''}" value="${esc(ff.q)}">
         ${sub === 'tasks' ? `<select id="fStatus"><option value="">全部状态</option>${Object.keys(STATUS).map(k => `<option value="${k}" ${ff.status === k ? 'selected' : ''}>${STATUS[k]}</option>`).join('')}</select>` : ''}
         <select id="fTag"><option value="">全部分类</option>${tags.map(t => `<option value="${esc(t)}" ${ff.tag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        <input type="date" id="fFrom" value="${esc(ff.from)}" title="起始日期（${sub === 'tasks' ? '截止日' : '更新日'}）">
+        <input type="date" id="fTo" value="${esc(ff.to)}" title="截止日期（${sub === 'tasks' ? '截止日' : '更新日'}）">
       </div>
       <div class="batch-bar ${selected.size ? '' : 'hidden'}" id="batch">
         <span class="count">已选 ${selected.size} 项</span>
@@ -85,6 +91,8 @@
     document.getElementById('q').oninput = e => { (sub === 'tasks' ? f.tasks : f.notes).q = e.target.value; renderBody(); };
     const ftag = document.getElementById('fTag'); if (ftag) ftag.onchange = e => { (sub === 'tasks' ? f.tasks : f.notes).tag = e.target.value; renderBody(); };
     const fst = document.getElementById('fStatus'); if (fst) fst.onchange = e => { f.tasks.status = e.target.value; renderBody(); };
+    const ffrom = document.getElementById('fFrom'); if (ffrom) ffrom.onchange = e => { ff.from = e.target.value; renderBody(); };
+    const fto = document.getElementById('fTo'); if (fto) fto.onchange = e => { ff.to = e.target.value; renderBody(); };
     const batch = document.getElementById('batch');
     if (batch) {
       const bd = document.getElementById('b-del'); if (bd) bd.onclick = () => { if (!confirm('确定删除选中的 ' + selected.size + ' 项？')) return; if (sub === 'tasks') data().tasks = data().tasks.filter(t => !selected.has(t.id)); else data().notes = data().notes.filter(n => !selected.has(n.id)); selected.clear(); save(); renderBody(); };
@@ -104,12 +112,12 @@
       tbody.innerHTML = list.length ? list.map(t => `
         <tr class="${selected.has(t.id) ? 'selected' : ''}" data-id="${t.id}">
           <td class="col-check"><input type="checkbox" class="rowcheck" data-id="${t.id}" ${selected.has(t.id) ? 'checked' : ''}></td>
-          <td>${esc(t.title || '')}</td>
-          <td><span class="chip ${STATUS_CLASS[t.status]}">${STATUS[t.status]}</span></td>
-          <td>${esc(t.due ? PBUI.fmtDate(t.due) : '—')}</td>
-          <td>${(t.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
-          <td class="muted note-cell">${esc((t.note || '').slice(0, 16)) || '—'}</td>
-          <td class="actions"><button class="rowbtn" data-edit="${t.id}">编辑</button><button class="rowbtn danger" data-del="${t.id}">删除</button></td>
+          <td data-label="标题">${esc(t.title || '')}</td>
+          <td data-label="状态"><span class="chip ${STATUS_CLASS[t.status]}">${STATUS[t.status]}</span></td>
+          <td data-label="截止">${esc(t.due ? PBUI.fmtDate(t.due) : '—')}</td>
+          <td data-label="标签">${(t.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
+          <td class="muted note-cell" data-label="备注">${esc((t.note || '').slice(0, 16)) || '—'}</td>
+          <td class="actions" data-label="操作"><button class="rowbtn" data-edit="${t.id}">编辑</button><button class="rowbtn danger" data-del="${t.id}">删除</button></td>
         </tr>`).join('') : `<tr><td colspan="7">${PBUI.emptyHint('还没有任务，点右上角新建')}</td></tr>`;
     } else {
       const list = notesFiltered();
@@ -117,10 +125,10 @@
       tbody.innerHTML = list.length ? list.map(n => `
         <tr class="${selected.has(n.id) ? 'selected' : ''}" data-id="${n.id}">
           <td class="col-check"><input type="checkbox" class="rowcheck" data-id="${n.id}" ${selected.has(n.id) ? 'checked' : ''}></td>
-          <td>${esc(n.title || '')}</td>
-          <td>${(n.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
-          <td>${esc(PBUI.fmtDate(n.updatedAt))}</td>
-          <td class="actions"><button class="rowbtn" data-view="${n.id}">查看</button><button class="rowbtn" data-edit="${n.id}">编辑</button><button class="rowbtn danger" data-del="${n.id}">删除</button></td>
+          <td data-label="标题">${esc(n.title || '')}</td>
+          <td data-label="标签">${(n.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
+          <td data-label="更新">${esc(PBUI.fmtDate(n.updatedAt))}</td>
+          <td class="actions" data-label="操作"><button class="rowbtn" data-view="${n.id}">查看</button><button class="rowbtn" data-edit="${n.id}">编辑</button><button class="rowbtn danger" data-del="${n.id}">删除</button></td>
         </tr>`).join('') : `<tr><td colspan="5">${PBUI.emptyHint('还没有笔记，点右上角新建')}</td></tr>`;
     }
     bindBody();

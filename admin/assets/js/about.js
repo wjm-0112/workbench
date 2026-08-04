@@ -2,14 +2,14 @@
 (function () {
   Admin.register('about', {
     title: '关于',
-    icon: 'ℹ️',
+    icon: 'about',
     render(el) {
       const cfg = Admin.config();
       const bytes = new Blob([PB.exportJSON()]).size;
       el.innerHTML = `
         <div class="card">
           <div class="panel-head"><h2>个人工作台 · 管理台</h2></div>
-          <p>版本：<b>v2.1（纯前端）</b></p>
+          <p>版本：<b>v2.3（纯前端）</b></p>
           <p class="muted">纯前端架构，无任何服务器。所有数据用访问密码在浏览器内端到端加密，存于本地；云同步通过 GitHub 仓库文件实现。</p>
           <p class="muted">当前站点名：${Admin.esc(cfg.siteName || '我的工作台')}</p>
           <p class="muted">本地数据占用：约 ${Admin.esc(bytes)} 字节</p>

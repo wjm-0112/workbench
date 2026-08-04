@@ -129,6 +129,7 @@
         <div class="field"><label>习惯打卡项</label><div id="tags-habit">${tagsHTML(c.defaults.habitItems)}</div></div>
         <div class="field"><label>知识库分类</label><div id="tags-kb">${tagsHTML(c.defaults.kbCategories)}</div></div>
         <div class="field"><label>财政分类</label><div id="tags-fin">${tagsHTML(c.defaults.financeCategories)}</div></div>
+        <div class="field"><label>财政账户</label><div id="tags-acc">${tagsHTML(c.defaults.financeAccounts)}</div></div>
       </div>
 
       <div class="cfg-section">
@@ -153,7 +154,7 @@
 
       <div class="cfg-section">
         <h3>关于</h3>
-        <p class="hint">个人工作台 v2.2 · 纯前端 + GitHub 加密云同步<br>本地加密数据体积：约 ${storageSize()}</p>
+        <p class="hint">个人工作台 v2.3 · 纯前端 + GitHub 加密云同步<br>本地加密数据体积：约 ${storageSize()}</p>
       </div>
     `;
     bind();
@@ -187,6 +188,7 @@
     bindTags('tags-habit', c.defaults.habitItems);
     bindTags('tags-kb', c.defaults.kbCategories);
     bindTags('tags-fin', c.defaults.financeCategories);
+    bindTags('tags-acc', c.defaults.financeAccounts);
     document.querySelectorAll('input[data-card]').forEach(cb => cb.onchange = () => {
       const k = cb.dataset.card; const arr = c.dashboard.showCards;
       if (cb.checked) { if (!arr.includes(k)) arr.push(k); } else { c.dashboard.showCards = arr.filter(x => x !== k); }

@@ -2,7 +2,7 @@
 (function () {
   Admin.register('dashboard', {
     title: '数据概览',
-    icon: '📊',
+    icon: 'dashboard',
     render(el) {
       const d = Admin.data();
       const tasks = d.tasks || [];
@@ -33,9 +33,14 @@
             <div class="panel-head"><h2>模块数量分布</h2></div>
             <div class="chart-box"><canvas id="statusChart"></canvas></div>
           </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="panel-head"><h2>近 6 月财政收支</h2><span class="muted">绿=收入 · 红=支出</span></div>
+          <div class="chart-box"><canvas id="fin6Chart"></canvas></div>
         </div>`;
       drawTrend(last7(tasks));
       drawStatus({ 任务: tasks.length, 笔记: notes.length, 知识库: snippets.length, 习惯: habits.length });
+      drawFin6(d.finance || []);
     },
   });
 
@@ -80,6 +85,24 @@
       type: 'doughnut',
       data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: ['#2b4c7e', '#1f9d6b', '#d98a00', '#a56bff'] }] },
       options: { plugins: { legend: { position: 'bottom' } } },
+    });
+  }
+  function drawFin6(finance) {
+    if (typeof Chart === 'undefined') return;
+    const labels = [], income = [], expense = [];
+    const m = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const dd = new Date(m.getFullYear(), m.getMonth() - i, 1);
+      const key = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, '0')}`;
+      labels.push(`${dd.getMonth() + 1}月`);
+      const recs = finance.filter((r) => (r.date || '').slice(0, 7) === key);
+      income.push(recs.filter((r) => r.type === 'income').reduce((s, r) => s + Number(r.amount || 0), 0));
+      expense.push(recs.filter((r) => r.type === 'expense').reduce((s, r) => s + Number(r.amount || 0), 0));
+    }
+    new Chart(document.getElementById('fin6Chart'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: '收入', data: income, backgroundColor: '#1f9d6b' }, { label: '支出', data: expense, backgroundColor: '#d9483b' }] },
+      options: { plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
     });
   }
 })();

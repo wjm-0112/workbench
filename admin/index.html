@@ -10,14 +10,16 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><span class="logo">P</span> 个人工作台 · 管理台</div>
+      <div class="brand"><span class="logo">P</span><span class="brand-txt">个人工作台 · 管理台</span></div>
       <nav class="nav" id="nav"></nav>
-      <div class="foot">本地管理台 · v2.1</div>
+      <div class="foot">本地管理台 · v2.3</div>
     </aside>
     <div class="main">
       <header class="topbar">
+        <button class="btn sm icon-btn" id="navToggle" title="收起/展开菜单" aria-label="菜单">☰</button>
         <h1 id="pageTitle">数据概览</h1>
         <div class="right">
+          <a class="btn sm" id="toC" href="../index.html" title="返回工作台（C 端）">← 工作台</a>
           <button class="btn sm" id="themeBtn" title="切换主题">🌓 主题</button>
           <span class="who" id="who">—</span>
           <button class="btn sm danger" id="logout">退出</button>
@@ -25,6 +27,7 @@
       </header>
       <main class="content" id="page"></main>
     </div>
+    <div class="drawer-overlay" id="drawerOverlay"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
