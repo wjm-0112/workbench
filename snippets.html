@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>速查 · 个人工作台</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="content" id="main">
+    <div class="page-head">
+      <h1>技术速查</h1>
+      <button class="btn btn-primary" id="add-btn">+ 新增</button>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="搜索代码/命令/API…">
+    </div>
+    <div id="list"></div>
+  </main>
+</div>
+<div class="topbar" id="topbar"></div>
+<div class="tabbar" id="tabbar"></div>
+<div class="modal-mask" id="modal-mask"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/snippets.js"></script>
+</body>
+</html>

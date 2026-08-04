@@ -1,0 +1,12 @@
+# 私人记忆/项目笔记目录（含本地记忆，切勿提交到公开仓库）
+.workbuddy/
+
+# 操作系统垃圾文件
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 本地数据备份（如有导出文件落在目录内）
+*.local.json
+backup-*.json

@@ -1,0 +1,13 @@
+{
+  "name": "个人工作台",
+  "short_name": "工作台",
+  "description": "本地优先、跨设备、隐私安全的个人工作台",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#FFFBF2",
+  "theme_color": "#4DA3FF",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
