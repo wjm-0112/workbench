@@ -103,12 +103,9 @@ const PB = (function () {
       return 'wrong';
     }
   }
-  function isUnlocked() {
-    if (cryptoKey && data) return true;
-    const sess = sessionStorage.getItem(SESSION_KEY);
-    if (sess) { try { data = JSON.parse(sess); return true; } catch (e) {} }
-    return false;
-  }
+  // 仅当内存里同时存在密钥与数据才算解锁；data 的恢复必须伴随密钥恢复（由 restore() 完成），
+  // 不要在此自行从 sessionStorage 恢复 data，否则可能出现“已解锁但密钥为 null”而再次触发 encrypt 报错。
+  function isUnlocked() { return !!(cryptoKey && data); }
   function lock() { cryptoKey = null; data = null; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(KEY_SESSION_KEY); }
 
   /* ---------- 数据访问 ---------- */
