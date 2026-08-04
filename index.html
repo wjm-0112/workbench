@@ -4,34 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>看板 · 个人工作台</title>
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="assets/css/style.css">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar" id="sidebar"></aside>
-  <main class="content" id="main">
-    <div class="page-head"><h1 id="greet">我的看板</h1></div>
-    <div class="grid-3" id="stats"></div>
-    <div class="grid-2">
-      <div class="card"><h2>今日任务</h2><div id="today-list"></div></div>
-      <div class="card"><h2>最近笔记</h2><div id="notes-list"></div></div>
-    </div>
-    <div class="grid-2">
-      <div class="card"><h2>习惯打卡</h2><div id="habit-list"></div><button class="btn btn-sm mt" id="add-habit">+ 添加习惯</button></div>
-      <div class="card"><h2>本周完成任务</h2><canvas id="chart-week" height="170"></canvas></div>
-    </div>
-    <div class="card"><h2>任务状态分布</h2><canvas id="chart-status" height="170"></canvas></div>
-  </main>
+  <aside id="sidebar" class="sidebar"></aside>
+  <div class="main">
+    <header id="topbar" class="topbar"></header>
+    <main class="content" id="content"></main>
+  </div>
 </div>
-<div class="topbar" id="topbar"></div>
-<div class="tabbar" id="tabbar"></div>
-<div class="modal-mask" id="modal-mask"></div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<nav id="tabbar" class="tabbar"></nav>
+<div id="modal-mask" class="modal-mask"></div>
 <script src="assets/js/store.js"></script>
 <script src="assets/js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="assets/js/dashboard.js"></script>
 </body>
 </html>
