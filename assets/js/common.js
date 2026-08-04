@@ -76,6 +76,7 @@ const PBUI = (function () {
   }
 
   async function ensureUnlocked() {
+    if (await PB.restore()) return true;
     if (PB.isUnlocked()) return true;
     return await showGate();
   }

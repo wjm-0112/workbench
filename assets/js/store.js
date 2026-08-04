@@ -5,6 +5,7 @@
 const PB = (function () {
   const STORAGE_KEY = 'pwb_data_v1';
   const SESSION_KEY = 'pwb_session_v1';
+  const KEY_SESSION_KEY = 'pwb_keysession_v1';
   const SETTINGS_KEY = 'pwb_settings_v1';
   const SALT = new TextEncoder().encode('pwb-crayon-salt-v1');
 
@@ -24,7 +25,7 @@ const PB = (function () {
     const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey(
       { name: 'PBKDF2', salt: SALT, iterations: 100000, hash: 'SHA-256' },
-      base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
     );
   }
   async function encryptObj(obj, k) {
@@ -42,6 +43,23 @@ const PB = (function () {
     const iv = bytes.slice(0, 12), ct = bytes.slice(12);
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, k, ct);
     return JSON.parse(new TextDecoder().decode(pt));
+  }
+
+  /* ---------- 会话内密钥持久化（仅 sessionStorage，关标签页即清） ---------- */
+  // 跨页面整页刷新时，内存里的 CryptoKey 会丢失；把其 JWK 存进 sessionStorage，
+  // 下次进页面用 restore() 导回，避免「encrypt 参数不是 CryptoKey」错误。
+  async function storeKeySession() {
+    try { sessionStorage.setItem(KEY_SESSION_KEY, JSON.stringify(await crypto.subtle.exportKey('jwk', cryptoKey))); } catch (e) {}
+  }
+  async function restore() {
+    try {
+      const kj = sessionStorage.getItem(KEY_SESSION_KEY);
+      const ds = sessionStorage.getItem(SESSION_KEY);
+      if (!kj || !ds) return false;
+      cryptoKey = await crypto.subtle.importKey('jwk', JSON.parse(kj), { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+      data = JSON.parse(ds);
+      return true;
+    } catch (e) { return false; }
   }
 
   /* ---------- 本地持久化 ---------- */
@@ -69,12 +87,14 @@ const PB = (function () {
     const blob = localStorage.getItem(STORAGE_KEY);
     if (!blob) {
       cryptoKey = await deriveKey(password);
+      await storeKeySession();
       data = emptyData();
       await persist();
       return 'first';
     }
     try {
       cryptoKey = await deriveKey(password);
+      await storeKeySession();
       data = await decryptObj(blob, cryptoKey);
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
       return 'ok';
@@ -89,7 +109,7 @@ const PB = (function () {
     if (sess) { try { data = JSON.parse(sess); return true; } catch (e) {} }
     return false;
   }
-  function lock() { cryptoKey = null; data = null; sessionStorage.removeItem(SESSION_KEY); }
+  function lock() { cryptoKey = null; data = null; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(KEY_SESSION_KEY); }
 
   /* ---------- 数据访问 ---------- */
   function getData() { return data || emptyData(); }
@@ -127,6 +147,7 @@ const PB = (function () {
   async function syncPull() {
     const s = getSettings();
     if (!s.enabled || !s.token || !s.user || !s.repo) return { ok: false, reason: 'disabled' };
+    if (!cryptoKey) return { ok: false, reason: '未解锁，请刷新页面重新输入密码' };
     try {
       const remote = await githubGet(s);
       if (!remote) return { ok: true, pulled: false };
@@ -139,6 +160,7 @@ const PB = (function () {
   async function syncPush() {
     const s = getSettings();
     if (!s.enabled || !s.token || !s.user || !s.repo) return { ok: false, reason: 'disabled' };
+    if (!cryptoKey) return { ok: false, reason: '未解锁，请刷新页面重新输入密码' };
     try {
       const blob = await encryptObj(data, cryptoKey);
       const path = s.path || 'data.json';
@@ -173,13 +195,14 @@ const PB = (function () {
     try { await decryptObj(blob, await deriveKey(oldP)); }
     catch (e) { return false; }
     cryptoKey = await deriveKey(newP);
+    await storeKeySession();
     await persist();
     return true;
   }
 
   return {
     uid, nowISO, emptyData, touch,
-    unlock, isUnlocked, lock, getData,
+    unlock, isUnlocked, lock, getData, restore,
     save, saveNow, hasLocal,
     getSettings, setSettings,
     syncPull, syncPush,
