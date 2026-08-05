@@ -245,23 +245,31 @@ mark{background:color-mix(in srgb,var(--warn) 40%,#fff);color:var(--ink);padding
 
 /* 月历（习惯打卡 / 看板整合日历共用，限制最大宽度以适配各类手机屏幕） */
 .cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px;box-shadow:var(--shadow-sm);max-width:420px;margin:0 auto;}
-.cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:5px;}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
 .cal-head span{text-align:center;font-size:10px;color:var(--muted);}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
-.cal-cell{position:relative;aspect-ratio:1;border-radius:8px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--ink);cursor:pointer;border:1px solid transparent;transition:transform .1s ease,box-shadow .12s ease;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-cell{position:relative;aspect-ratio:1;border-radius:8px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;border:1px solid transparent;overflow:hidden;transition:transform .1s ease,box-shadow .12s ease;}
 .cal-cell.empty{background:none;cursor:default;}
 .cal-cell:hover:not(.empty){box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 40%,transparent);}
 .cal-cell.on{background:var(--primary);color:#fff;}
 .cal-cell.today{box-shadow:inset 0 0 0 2px var(--accent);}
-.cal-cell .cal-check{font-size:9px;line-height:1;margin-top:1px;}
-.cal-cell .cal-dots{position:absolute;bottom:3px;display:flex;gap:2px;}
-.cal-dot{width:4px;height:4px;border-radius:50%;}
+.cal-cell .cal-check{font-size:10px;line-height:1;margin-top:1px;}
+.cal-cell .cal-dots{position:absolute;bottom:2px;display:flex;gap:1px;}
+.cal-dot{width:5px;height:5px;border-radius:50%;}
 .cal-dot.task{background:#3B82F6;}
 .cal-dot.note{background:var(--purple);}
 .cal-cell.on .cal-dot.task{background:#fff;}
 .cal-cell.on .cal-dot.note{background:#fff;}
 .cal-legend{display:flex;gap:12px;align-items:center;margin-top:9px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
 .cal-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+@media(max-width:380px){
+  .cal{padding:8px;}
+  .cal-head span{font-size:9px;}
+  .cal-cell{font-size:11px;border-radius:6px;}
+  .cal-cell .cal-check{font-size:8px;}
+  .cal-dot{width:4px;height:4px;}
+  .cal-legend{font-size:10px;gap:8px;}
+}
 
 /* 年度热力（GitHub 贡献图风格，附月份标签便于分辨时间） */
 .heatmap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;box-shadow:var(--shadow-sm);overflow-x:auto;-webkit-overflow-scrolling:touch;}
@@ -321,12 +329,26 @@ mark{background:color-mix(in srgb,var(--warn) 40%,#fff);color:var(--ink);padding
 
 /* 财政：收支明细卡片 */
 .rec-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
-.rec-card{border:1px solid var(--border);border-radius:14px;padding:12px 14px;background:var(--surface);transition:transform .1s ease,box-shadow .15s ease;}
-.rec-top{display:flex;justify-content:space-between;align-items:center;}
-.rec-mid{display:flex;justify-content:space-between;gap:10px;margin:6px 0;font-size:13px;}
-.rec-bottom{display:flex;justify-content:space-between;align-items:center;}
-.rec-amt{font-size:18px;font-weight:800;}
-.rec-note{margin-top:6px;}
+.rec-card{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface);transition:transform .1s ease,box-shadow .15s ease;}
+.rec-card.selected{background:color-mix(in srgb,var(--primary) 6%,var(--surface));border-color:var(--primary);}
+
+/* 综合（planner）：卡片排序栏 + 任务笔记卡片 */
+.sort-bar{display:flex;align-items:center;margin-bottom:10px;font-size:13px;color:var(--muted);}
+.sort-links{display:flex;gap:12px;}
+.sort-links .sortable{cursor:pointer;user-select:none;}
+.sort-links .sortable.active{color:var(--primary);font-weight:600;}
+.pl-check{display:flex;align-items:center;flex:0 0 auto;margin-right:8px;}
+.pl-check input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;}
+.pl-note{font-size:12px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;}
+.pl-excerpt{font-size:12px;color:var(--muted);margin:4px 0 6px 26px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rec-row1{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.rec-row1 .rec-cat-icon{font-size:22px;line-height:1;flex:0 0 auto;}
+.rec-row1 .rec-cat-name{flex:1;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rec-row1 .rec-amt{font-size:19px;font-weight:800;flex:0 0 auto;white-space:nowrap;}
+.rec-row2{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);}
+.rec-row2 .rec-meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+.rec-row2 .rec-actions{display:flex;gap:4px;flex:0 0 auto;}
+.rec-note{margin-top:6px;font-size:12px;color:var(--muted);}
 
 /* 设置页：账户管理卡片（v2.4 取代旧 financeAccounts tag-edit） */
 .acc-list{display:flex;flex-direction:column;gap:8px;}
@@ -382,7 +404,7 @@ mark{background:color-mix(in srgb,var(--warn) 40%,#fff);color:var(--ink);padding
 .fab:active{transform:scale(.92);}
 
 /* 明细列表：分类 icon */
-.rec-cat-icon{font-size:18px;line-height:1;margin-right:4px;}
+.rec-cat-icon{font-size:22px;line-height:1;}
 
 /* 趋势控制器 */
 .trend-controls{display:flex;justify-content:center;align-items:center;margin-top:10px;}

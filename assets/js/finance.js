@@ -19,6 +19,16 @@
   const data = () => PB.getData();
   if (!data().financeGoals) data().financeGoals = [];
   if (!data().savings) data().savings = [];
+  // v2.4: 旧「理财目标」迁移到攒钱计划
+  if (data().financeGoals.length) {
+    data().financeGoals.forEach(g => {
+      if (g.name && g.target) {
+        data().savings.push(PB.touch({ id: PB.uid(), amount: Number(g.current || 0), target: Number(g.target), intention: g.name, method: '其他', date: g.month ? g.month + '-01' : new Date().toISOString().slice(0, 10), note: g.note || '（由旧目标迁移）' }));
+      }
+    });
+    data().financeGoals = [];
+    PB.save();
+  }
   let fType = '', fMonth = '', fAccount = '';
   let finTab = '概览';
   let trendGran = '月'; let trendYear = new Date().getFullYear(); let trendMonth = new Date().getMonth();
@@ -103,19 +113,14 @@
           </div>`).join('')}</div>
       </div>` : ''}
 
-      ${savedTotal > 0 ? `<div class="card"><span class="chip in" style="display:inline-flex;align-items:center;gap:4px;margin-bottom:6px;">🏦 攒钱合计</span><div class="num flow-in" style="margin:0;">${money(savedTotal)}</div></div>` : ''}
-
-      <div class="card">
-        <div class="card-head"><h3 style="margin:0;">目标</h3><button class="btn btn-sm btn-primary" id="add-goal">+ 新增</button></div>
-        ${goals.length ? goals.map(g => {
-          const pct = g.target > 0 ? Math.min(100, Math.round((Number(g.current || 0) / Number(g.target)) * 100)) : 0;
-          return `<div class="goal">
-            <div class="goal-top"><span>${esc(g.name)}${g.month ? ` <span class="muted-note">· ${esc(g.month)}</span>` : ''}</span><span class="muted-note">${money(g.current || 0)} / ${money(g.target)}</span></div>
-            <div class="progress"><i style="width:${pct}%"></i></div>
-            <div class="actions" style="margin-top:2px;"><button class="rowbtn" data-gedit="${g.id}">编辑</button><button class="rowbtn danger" data-gdel="${g.id}">删除</button></div>
-          </div>`;
-        }).join('') : '<p class="muted-note">还没有目标，点「新增」制定预算或理财计划</p>'}
-      </div>
+      ${(d.savings || []).length ? `<div class="card">
+        <div class="card-head"><h3 style="margin:0;">攒钱计划</h3><button class="btn btn-sm btn-primary" id="add-save">+ 记录</button></div>
+        <div class="num flow-in" style="margin-bottom:4px;">💰 ${money(savedTotal)} 累计</div>
+        ${(d.savings || []).filter(s => s.target && s.target > 0).slice(0, 3).map(s => {
+          const pct = Math.min(100, Math.round((Number(s.amount || 0) / Number(s.target)) * 100));
+          return `<div class="goal"><div class="goal-top"><span>${esc(s.intention || s.method || '攒钱')}</span><span class="muted-note">${money(s.amount)} / ${money(s.target)}</span></div><div class="progress"><i style="width:${pct}%"></i></div></div>`;
+        }).join('')}
+      </div>` : ''}
 
       <button class="fab" id="fab-add" title="记一笔">💰</button>`;
   }
@@ -150,12 +155,12 @@
         <div class="rec-list">
           ${all.length ? all.map(r => {
             const a = accountById(r.accountId);
+            const note = r.note ? `<div class="rec-note">${esc(r.note)}</div>` : '';
             return `
             <div class="rec-card" data-id="${r.id}">
-              <div class="rec-top"><span class="rec-cat-icon">${catIcon(r.category || '其他')}</span><span>${esc(r.category || '—')}<span class="muted-note">${r.note ? ' · ' + esc(r.note) : ''}</span></span><span class="chip ${r.type === 'income' ? 'in' : 'out'}">${TYPES[r.type]}</span></div>
-              <div class="rec-bottom"><span class="rec-date">${esc((r.date || '').slice(5) || '—')}${a ? ` · ${accIcon(a.type)}${esc(a.name)}` : ''}</span>
-                <span class="rec-amt ${r.type === 'income' ? 'flow-in' : 'flow-out'}">${r.type === 'income' ? '+' : '-'}${money(r.amount)}</span>
-                <span class="rec-actions"><button class="rowbtn" data-edit="${r.id}">编辑</button><button class="rowbtn danger" data-del="${r.id}">删除</button></span></div>
+              <div class="rec-row1"><span class="rec-cat-icon">${catIcon(r.category || '其他')}</span><span class="rec-cat-name">${esc(r.category || '—')}</span><span class="rec-amt ${r.type === 'income' ? 'flow-in' : 'flow-out'}">${r.type === 'income' ? '+' : '-'}${money(r.amount)}</span></div>
+              <div class="rec-row2"><span class="rec-meta">${esc((r.date || '').slice(5) || '—')}${a ? ` · ${accIcon(a.type)}${esc(a.name)}` : ''}</span><span class="rec-actions"><button class="rowbtn" data-edit="${r.id}">编辑</button><button class="rowbtn danger" data-del="${r.id}">删除</button></span></div>
+              ${note}
             </div>`;
           }).join('') : PBUI.emptyHint('还没有记账，点下面按钮开始')}
         </div>
@@ -166,16 +171,20 @@
     const list = (data().savings || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     return `
       <div class="card">
-        <div class="card-head"><h3 style="margin:0;">攒钱记录</h3><button class="btn btn-sm btn-primary" id="add-save">+ 记攒钱</button></div>
+        <div class="card-head"><h3 style="margin:0;">攒钱计划</h3><button class="btn btn-sm btn-primary" id="add-save">+ 记录</button></div>
         <div class="rec-list">
-          ${list.length ? list.map(r => `
+          ${list.length ? list.map(r => {
+            const a = r.accountId ? accountById(r.accountId) : null;
+            const hasTarget = r.target && r.target > 0;
+            const pct = hasTarget ? Math.min(100, Math.round((Number(r.amount || 0) / Number(r.target)) * 100)) : 0;
+            return `
             <div class="rec-card" data-id="${r.id}">
-              <div class="rec-top"><span class="rec-date">${esc((r.date || '').slice(5) || '—')}</span><span class="chip in">攒钱</span></div>
-              <div class="rec-mid"><span class="rec-cat">${esc(r.method || '—')}</span><span class="rec-account muted-note">${esc(r.intention || '')}</span></div>
-              <div class="rec-bottom"><span class="rec-amt flow-in">+${money(r.amount)}</span>
-                <span class="rec-actions"><button class="rowbtn" data-sedit="${r.id}">编辑</button><button class="rowbtn danger" data-sdel="${r.id}">删除</button></span></div>
-              ${r.note ? `<div class="rec-note muted-note">${esc(r.note)}</div>` : ''}
-            </div>`).join('') : PBUI.emptyHint('还没有攒钱记录，点「记攒钱」开始积累')}
+              <div class="rec-row1"><span class="rec-cat-icon">💰</span><span class="rec-cat-name">${esc(r.intention || r.method || '攒钱')}${a ? `<span class="muted-note" style="font-weight:400;"> · ${accIcon(a.type)}${esc(a.name)}</span>` : ''}</span><span class="rec-amt flow-in">${hasTarget ? `${money(r.amount)} <span class="muted-note" style="font-weight:400;">/ ${money(r.target)}</span>` : `+${money(r.amount)}`}</span></div>
+              ${hasTarget ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ''}
+              <div class="rec-row2"><span class="rec-meta">${esc((r.date || '').slice(5) || '—')} · ${esc(r.method || '—')}</span><span class="rec-actions"><button class="rowbtn" data-sedit="${r.id}">编辑</button><button class="rowbtn danger" data-sdel="${r.id}">删除</button></span></div>
+              ${r.note ? `<div class="rec-note">${esc(r.note)}</div>` : ''}
+            </div>`;
+          }).join('') : PBUI.emptyHint('还没有攒钱计划，点「+ 记录」开始')}
         </div>
       </div>`;
   }
@@ -186,9 +195,10 @@
     const accs = accounts();
     PBUI.openModal(`
       <div class="sheet-grip"></div>
-      <h2>${r ? '编辑攒钱' : '记一笔攒钱'}</h2>
+      <h2>${r ? '编辑攒钱' : '攒钱计划'}</h2>
       <div class="r-amount"><input type="number" id="s-amount" min="0" step="0.01" value="${esc(r ? r.amount : '')}" placeholder="0.00" inputmode="decimal"></div>
       <div class="form-grid">
+        <label class="field"><span class="field-label">目标金额（可选）</span><input type="number" id="s-target" min="0" step="0.01" value="${esc(r && r.target ? r.target : '')}" placeholder="设个目标"></label>
         <label class="field"><span class="field-label">存储方式</span><input type="text" id="s-method" list="saveMethods" value="${esc(r ? r.method : '')}" placeholder="现金 / 银行卡…"><datalist id="saveMethods">${methods.map(m => `<option value="${esc(m)}">`).join('')}</datalist></label>
         <label class="field"><span class="field-label">来源账户</span>
           <select id="s-acc"><option value="">—</option>${accs.map(a => `<option value="${a.id}" ${r && r.accountId === a.id ? 'selected' : ''}>${accIcon(a.type)} ${esc(a.name)}</option>`).join('')}</select></label>
@@ -209,6 +219,7 @@
       if (isNaN(amount) || amount < 0) { PBUI.toast('请输入有效金额'); return; }
       const obj = {
         amount,
+        target: parseFloat(document.getElementById('s-target').value) || undefined,
         method: document.getElementById('s-method').value.trim(),
         intention: document.getElementById('s-intention').value.trim(),
         accountId: document.getElementById('s-acc').value || undefined,
@@ -316,12 +327,41 @@
     const add = document.getElementById('add'); if (add) add.onclick = () => editRecord(null);
     document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editRecord(b.dataset.edit));
     document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (!confirm('确定删除该记录？')) return; data().finance = data().finance.filter(r => r.id !== b.dataset.del); save(); renderTab(); });
-    const ag = document.getElementById('add-goal'); if (ag) ag.onclick = () => editGoal(null);
-    document.querySelectorAll('[data-gedit]').forEach(b => b.onclick = () => editGoal(b.dataset.gedit));
-    document.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => { if (!confirm('确定删除该目标？')) return; data().financeGoals = data().financeGoals.filter(g => g.id !== b.dataset.gdel); save(); renderTab(); });
     const as = document.getElementById('add-save'); if (as) as.onclick = () => editSaving(null);
+    // 账户卡片点击 → 编辑账户
+    document.querySelectorAll('.acard').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.onclick = (e) => {
+        if (e.target.closest('.acard-actions, .rowbtn')) return; // 不拦截子按钮
+        const accs = accounts(); const idx = Array.from(card.parentNode.children).indexOf(card);
+        if (accs[idx]) editAccount(accs[idx].id);
+      };
+    });
     document.querySelectorAll('[data-sedit]').forEach(b => b.onclick = () => editSaving(b.dataset.sedit));
     document.querySelectorAll('[data-sdel]').forEach(b => b.onclick = () => { if (!confirm('确定删除该攒钱记录？')) return; data().savings = data().savings.filter(r => r.id !== b.dataset.sdel); save(); renderTab(); });
+  }
+
+  function editAccount(id) {
+    const a = id ? (accounts().find(x => x.id === id)) : null;
+    const sel = t => a && a.type === t ? 'selected' : '';
+    const types = ['支付宝', '微信', '银行卡', '现金', '其他'];
+    PBUI.openModal(`
+      <div class="sheet-grip"></div>
+      <h2>${a ? '编辑账户' : '添加账户'}</h2>
+      <div class="field"><label>类型</label><select id="a-type">${types.map(t => `<option value="${t}" ${sel(t)}>${accIcon(t)} ${t}</option>`).join('')}</select></div>
+      <div class="field"><label>名称</label><input type="text" id="a-name" value="${esc(a ? a.name : '')}" placeholder="如 招商银行"></div>
+      <div class="field" id="a-bank-row" style="${(a && a.type === '银行卡') ? '' : 'display:none'}"><label>银行</label><input type="text" id="a-bank" value="${esc(a && a.bank ? a.bank : '')}" placeholder="如 招商银行"></div>
+      <div class="field"><label>初始余额</label><input type="number" id="a-bal" min="0" step="0.01" value="${esc(a ? a.initialBalance : 0)}"></div>
+      <div class="modal-foot"><button class="btn" onclick="PBUI.closeModal()">取消</button><button class="btn btn-primary" id="a-save">保存</button></div>`, 'modal-sheet');
+    document.getElementById('a-type').onchange = e => { document.getElementById('a-bank-row').style.display = e.target.value === '银行卡' ? '' : 'none'; };
+    document.getElementById('a-save').onclick = () => {
+      const name = document.getElementById('a-name').value.trim();
+      if (!name) { PBUI.toast('请输入名称'); return; }
+      const type = document.getElementById('a-type').value;
+      const obj = { type, name, bank: type === '银行卡' ? document.getElementById('a-bank').value.trim() || undefined : undefined, initialBalance: parseFloat(document.getElementById('a-bal').value) || 0 };
+      if (a) { Object.assign(a, obj); } else { obj.id = PB.uid(); cfg().defaults.accounts.push(obj); }
+      save(); PBUI.closeModal(); renderTab();
+    };
   }
 
   function editRecord(id) {
@@ -329,8 +369,8 @@
     const cats = cfg().defaults.financeCategories || [];
     const accs = accounts();
     const selType = r ? r.type : 'expense';
-    const catGrid = cats.map(c => `<button class="cat-btn${(r && r.category === c) || (!r && !selCat && cats[0] === c) ? ' active' : ''}" data-cat="${esc(c)}">${catIcon(c)}<span>${esc(c)}</span></button>`).join('');
     let selCat = r ? r.category : '';
+    const catGrid = cats.map(c => `<button class="cat-btn${(r && r.category === c) || (!r && !selCat && cats[0] === c) ? ' active' : ''}" data-cat="${esc(c)}">${catIcon(c)}<span>${esc(c)}</span></button>`).join('');
     PBUI.openModal(`
       <div class="sheet-grip"></div>
       <div class="seg" style="margin-bottom:14px;" id="r-seg">

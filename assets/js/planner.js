@@ -87,12 +87,8 @@
         ${sub === 'tasks' ? `<button class="btn btn-sm" id="b-done">标记已完成</button><button class="btn btn-sm" id="b-tag">加标签</button>` : ''}
         <button class="btn btn-sm btn-accent" id="b-del">删除</button>
       </div>
-      <div class="table-wrap">
-        <table class="table">
-          <thead><tr id="thead-row"></tr></thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>`;
+      <div class="sort-bar" id="sort-bar"></div>
+      <div class="rec-list" id="tbody"></div>`;
     content.querySelectorAll('.subtab').forEach(b => b.onclick = () => { if (b.dataset.sub === sub) return; sub = b.dataset.sub; selected.clear(); renderShell(); });
     document.getElementById('add').onclick = () => sub === 'tasks' ? editTask(null) : editNote(null);
     document.getElementById('q').oninput = e => { (sub === 'tasks' ? f.tasks : f.notes).q = e.target.value; renderBody(); };
@@ -111,33 +107,50 @@
   }
 
   function renderBody() {
-    const thead = document.getElementById('thead-row');
-    const tbody = document.getElementById('tbody');
+    var tbody = document.getElementById('tbody');
     if (!tbody) return;
     if (sub === 'tasks') {
-      const list = tasksFiltered();
-      thead.innerHTML = `<th class="col-check"><input type="checkbox" id="checkAll"></th><th class="sortable" data-sort="title">标题</th><th class="sortable" data-sort="status">状态</th><th class="sortable" data-sort="due">截止</th><th>标签</th><th>备注</th><th>操作</th>`;
-      tbody.innerHTML = list.length ? list.map(t => `
-        <tr class="${selected.has(t.id) ? 'selected' : ''}" data-id="${t.id}">
-          <td class="col-check"><input type="checkbox" class="rowcheck" data-id="${t.id}" ${selected.has(t.id) ? 'checked' : ''}></td>
-          <td data-label="标题">${esc(t.title || '')}</td>
-          <td data-label="状态"><span class="chip ${STATUS_CLASS[t.status]}">${STATUS[t.status]}</span></td>
-          <td data-label="截止">${esc(t.due ? PBUI.fmtDate(t.due) : '—')}</td>
-          <td data-label="标签">${(t.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
-          <td class="muted note-cell" data-label="备注">${esc((t.note || '').slice(0, 16)) || '—'}</td>
-          <td class="actions" data-label="操作"><button class="rowbtn" data-edit="${t.id}">编辑</button><button class="rowbtn danger" data-del="${t.id}">删除</button></td>
-        </tr>`).join('') : `<tr><td colspan="7">${PBUI.emptyHint('还没有任务，点右上角新建')}</td></tr>`;
+      var list = tasksFiltered();
+      var ab = function(dir) { return dir > 0 ? '^' : 'v'; };
+      var sa = function(k, dir, v) { return (dir === k ? ' active' : '') + (dir === k ? (' ' + ab(v)) : ''); };
+      document.getElementById('sort-bar').innerHTML = '<span class="sort-links"><span class="sortable' + sa('title', sortKey, sortDir) + '" data-sort="title">标题</span><span class="sortable' + sa('status', sortKey, sortDir) + '" data-sort="status">状态</span><span class="sortable' + sa('due', sortKey, sortDir) + '" data-sort="due">截止</span></span>';
+      var cards = '';
+      for (var i = 0; i < list.length; i++) {
+        var t = list[i];
+        var sel = selected.has(t.id) ? ' selected' : '';
+        var chk = selected.has(t.id) ? 'checked' : '';
+        var tagsHtml = '';
+        if (t.tags && t.tags.length) for (var j = 0; j < t.tags.length; j++) tagsHtml += '<span class="chip">' + esc(t.tags[j]) + '</span>';
+        var dueExtra = t.due ? '<span style="margin-left:' + (t.tags && t.tags.length ? '8px' : '0') + ';">📅 ' + PBUI.fmtDate(t.due) + '</span>' : '';
+        var noteExtra = t.note ? '<span class="pl-note">' + esc((t.note || '').slice(0, 24)) + '</span>' : '';
+        cards += '<div class="rec-card' + sel + '" data-id="' + t.id + '">' +
+          '<div class="rec-row1"><label class="pl-check"><input type="checkbox" class="rowcheck" data-id="' + t.id + '" ' + chk + '></label><span class="rec-cat-name">' + esc(t.title || '') + '</span><span class="chip ' + STATUS_CLASS[t.status] + '">' + STATUS[t.status] + '</span></div>' +
+          '<div class="rec-row2"><span class="rec-meta">' + tagsHtml + dueExtra + noteExtra + '</span><span class="rec-actions"><button class="rowbtn" data-edit="' + t.id + '">编辑</button><button class="rowbtn danger" data-del="' + t.id + '">删除</button></span></div>' +
+        '</div>';
+      }
+      tbody.innerHTML = cards || '<div class="card" style="text-align:center">' + PBUI.emptyHint('还没有任务，点右上角新建') + '</div>';
     } else {
-      const list = notesFiltered();
-      thead.innerHTML = `<th class="col-check"><input type="checkbox" id="checkAll"></th><th class="sortable" data-sort="title">标题</th><th>标签</th><th class="sortable" data-sort="updated">更新</th><th>操作</th>`;
-      tbody.innerHTML = list.length ? list.map(n => `
-        <tr class="${selected.has(n.id) ? 'selected' : ''}" data-id="${n.id}">
-          <td class="col-check"><input type="checkbox" class="rowcheck" data-id="${n.id}" ${selected.has(n.id) ? 'checked' : ''}></td>
-          <td data-label="标题">${esc(n.title || '')}</td>
-          <td data-label="标签">${(n.tags || []).map(x => `<span class="chip">${esc(x)}</span>`).join(' ')}</td>
-          <td data-label="更新">${esc(PBUI.fmtDate(n.updatedAt))}</td>
-          <td class="actions" data-label="操作"><button class="rowbtn" data-view="${n.id}">查看</button><button class="rowbtn" data-edit="${n.id}">编辑</button><button class="rowbtn danger" data-del="${n.id}">删除</button></td>
-        </tr>`).join('') : `<tr><td colspan="5">${PBUI.emptyHint('还没有笔记，点右上角新建')}</td></tr>`;
+      var list = notesFiltered();
+      var ab2 = function(dir) { return dir > 0 ? '^' : 'v'; };
+      var sa2 = function(k, dir, v) { return (dir === k ? ' active' : '') + (dir === k ? (' ' + ab2(v)) : ''); };
+      document.getElementById('sort-bar').innerHTML = '<span class="sort-links"><span class="sortable' + sa2('title', noteSort, noteDir) + '" data-sort="title">标题</span><span class="sortable' + sa2('updated', noteSort, noteDir) + '" data-sort="updated">更新</span></span>';
+      var cards = '';
+      for (var i = 0; i < list.length; i++) {
+        var n = list[i];
+        var sel = selected.has(n.id) ? ' selected' : '';
+        var chk = selected.has(n.id) ? 'checked' : '';
+        var bodyExcerpt = (n.body || '').replace(/<[^>]*>/g, '').replace(/[#*_~\u0060>]/g, '').slice(0, 60);
+        var tagsHtml = '';
+        if (n.tags && n.tags.length) for (var j = 0; j < n.tags.length; j++) tagsHtml += '<span class="chip">' + esc(n.tags[j]) + '</span>';
+        var dateExtra = n.updatedAt ? '<span style="margin-left:' + (n.tags && n.tags.length ? '8px' : '0') + ';">📝 ' + PBUI.fmtDate(n.updatedAt) + '</span>' : '';
+        var excerptHtml = bodyExcerpt ? '<div class="pl-excerpt">' + esc(bodyExcerpt) + '</div>' : '';
+        cards += '<div class="rec-card' + sel + '" data-id="' + n.id + '">' +
+          '<div class="rec-row1"><label class="pl-check"><input type="checkbox" class="rowcheck" data-id="' + n.id + '" ' + chk + '></label><span class="rec-cat-name">' + esc(n.title || '') + '</span></div>' +
+          excerptHtml +
+          '<div class="rec-row2"><span class="rec-meta">' + tagsHtml + dateExtra + '</span><span class="rec-actions"><button class="rowbtn" data-view="' + n.id + '">查看</button><button class="rowbtn" data-edit="' + n.id + '">编辑</button><button class="rowbtn danger" data-del="' + n.id + '">删除</button></span></div>' +
+        '</div>';
+      }
+      tbody.innerHTML = cards || '<div class="card" style="text-align:center">' + PBUI.emptyHint('还没有笔记，点右上角新建') + '</div>';
     }
     bindBody();
     toggleBatch();
