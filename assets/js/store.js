@@ -46,7 +46,12 @@ const PB = (function () {
       taskTags: ['工作','生活','学习'],
       habitItems: ['喝水','读书','运动'],
       financeCategories: ['餐饮','交通','购物','居住','娱乐','医疗','收入','理财','其他'],
-      financeAccounts: ['现金','银行卡','支付宝','微信','投资'],
+      accounts: [
+        { id:'acc-builtin-1', type:'现金', name:'现金', initialBalance:0 },
+        { id:'acc-builtin-2', type:'支付宝', name:'支付宝', initialBalance:0 },
+        { id:'acc-builtin-3', type:'微信', name:'微信', initialBalance:0 },
+        { id:'acc-builtin-4', type:'银行卡', name:'银行卡', bank:'（选填具体银行）', initialBalance:0 }
+      ],
       savingsMethods: ['现金','银行卡','支付宝','微信','定期存款']
     },
     dashboard: { showCards:['pending','dueToday','overdue','habitStreak','monthFlow'], showWeekTrend:true, showCategoryBreakdown:true },
@@ -108,6 +113,21 @@ const PB = (function () {
     d.tasks = d.tasks || []; d.notes = d.notes || []; d.habits = d.habits || []; d.finance = d.finance || []; d.savings = d.savings || [];
     d.meta = d.meta || { version: 1, lastSyncAt: null };
     d.config = deepMergeConfig(d.config);
+    // v2.4: 迁移旧的 financeAccounts 字符串数组 → accounts 对象数组
+    const defs = d.config.defaults;
+    if (!defs.accounts || !Array.isArray(defs.accounts) || !defs.accounts.length || (defs.accounts.length && typeof defs.accounts[0] === 'string')) {
+      const old = (defs.accounts && Array.isArray(defs.accounts) && defs.accounts.length && typeof defs.accounts[0] === 'string') ? defs.accounts : (defs.financeAccounts || []);
+      const typeMap = { '支付宝':'支付宝', '微信':'微信', '现金':'现金', '银行卡':'银行卡', '投资':'其他' };
+      defs.accounts = old.map(s => ({ id: uid(), type: typeMap[s] || '其他', name: s, bank: (s === '银行卡' || s === '投资') ? s : undefined, initialBalance: 0 }));
+      if (!defs.accounts.length) defs.accounts = [{ id: 'default-cash', type: '现金', name: '现金', initialBalance: 0 }];
+    }
+    delete defs.financeAccounts; // 清理旧字段
+    // v2.4: 为旧的 finance 记录补齐 accountId（旧数据用文本 account 字段）
+    const accList = defs.accounts || [];
+    const accByName = new Map(accList.map(a => [a.name, a.id]));
+    (d.finance || []).forEach(r => {
+      if (!r.accountId) r.accountId = accByName.get(r.account || '') || (accList[0] ? accList[0].id : '');
+    });
     // 清理旧的明文同步键（已废弃）
     try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
     return d;

@@ -328,7 +328,65 @@ mark{background:color-mix(in srgb,var(--warn) 40%,#fff);color:var(--ink);padding
 .rec-amt{font-size:18px;font-weight:800;}
 .rec-note{margin-top:6px;}
 
-/* Toast */
+/* 设置页：账户管理卡片（v2.4 取代旧 financeAccounts tag-edit） */
+.acc-list{display:flex;flex-direction:column;gap:8px;}
+.acc-card{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:14px;padding:12px 14px;background:var(--surface);}
+.acc-icon{font-size:24px;line-height:1;flex:0 0 auto;}
+.acc-info{flex:1;min-width:0;}
+.acc-name{font-size:15px;font-weight:600;display:block;}
+.acc-bank{font-weight:400;color:var(--muted);font-size:13px;}
+.acc-type{font-size:12px;color:var(--muted);display:block;margin-top:2px;}
+.acc-actions{display:flex;gap:4px;flex:0 0 auto;}
+
+/* 财政 v2.4：小荷包风格概览 */
+.fin-hero{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 20px;margin-bottom:14px;}
+.fin-hero-label{font-size:13px;color:var(--muted);margin-bottom:4px;}
+.fin-hero-balance{font-size:clamp(32px,8vw,44px);font-weight:900;letter-spacing:-1px;margin:4px 0;}
+.fin-hero-row{font-size:14px;color:var(--muted);display:flex;justify-content:center;gap:12px;margin-bottom:8px;}
+.fin-hero-sep{color:var(--border);}
+.fin-hero-bar{height:6px;background:var(--success);border-radius:999px;overflow:hidden;margin:8px auto;max-width:320px;}
+.fin-hero-bar i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .3s ease;}
+.fin-hero-cats{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px;}
+.fin-cat-chip{font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px 10px;white-space:nowrap;}
+
+/* 概览：账户卡片（acard） */
+.acard{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--border);}
+.acard:last-child{border-bottom:none;}
+.acard-icon{font-size:28px;line-height:1;flex:0 0 auto;}
+.acard-info{flex:1;min-width:0;}
+.acard-name{font-size:15px;font-weight:600;display:block;}
+.acard-bal{font-size:20px;font-weight:800;display:block;margin-top:2px;}
+.acard-sub{font-size:12px;color:var(--muted);flex:0 0 auto;text-align:right;}
+
+/* 记账弹窗：大额金额 */
+.r-amount input[type=number]{width:100%;font-size:clamp(28px,7vw,38px);font-weight:800;text-align:center;border:none;background:transparent;padding:8px 0;color:var(--ink);box-shadow:none;}
+.r-amount input[type=number]:focus{box-shadow:none;outline:none;}
+.r-amount input[type=number]::placeholder{color:var(--border);font-weight:400;}
+
+/* 分类九宫格 */
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
+.cat-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border:1.5px solid var(--border);border-radius:12px;background:var(--bg);font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s ease;}
+.cat-btn.active{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,var(--bg));color:var(--primary);font-weight:600;}
+.cat-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+
+/* 两列表单网格 */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-grid .field{margin-bottom:0;}
+.form-grid .field-label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;}
+
+/* 备注折叠 */
+.r-note-toggle{font-size:13px;color:var(--primary);cursor:pointer;padding:6px 0;}
+
+/* FAB 浮动按钮 */
+.fab{position:fixed;right:20px;bottom:calc(96px + env(safe-area-inset-bottom, 0px) + 16px);width:56px;height:56px;border-radius:28px;background:var(--primary);color:#fff;border:none;font-size:24px;box-shadow:0 4px 16px rgba(91,108,255,.35);cursor:pointer;z-index:20;display:flex;align-items:center;justify-content:center;transition:transform .15s ease;}
+.fab:active{transform:scale(.92);}
+
+/* 明细列表：分类 icon */
+.rec-cat-icon{font-size:18px;line-height:1;margin-right:4px;}
+
+/* 趋势控制器 */
+.trend-controls{display:flex;justify-content:center;align-items:center;margin-top:10px;}
+.trend-controls .btn{border:none;background:var(--bg);font-size:20px;padding:4px 12px;}
 .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
   padding:11px 20px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:all .2s ease;z-index:80;box-shadow:var(--shadow);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}

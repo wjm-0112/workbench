@@ -32,6 +32,70 @@
       <input type="text" data-add placeholder="添加后回车"></div>`;
   }
 
+  // ---- 账户管理（v2.4 自定义账户，取代旧 financeAccounts 字符串） ----
+  const ACC_TYPES = ['支付宝', '微信', '银行卡', '现金', '其他'];
+  function accIcon(type) {
+    const map = { '支付宝': '💙', '微信': '💚', '银行卡': '🏦', '现金': '💵', '其他': '💳' };
+    return map[type] || '💳';
+  }
+  function accountsHTML() {
+    const accs = cfg().defaults.accounts || [];
+    const list = accs.map(a => {
+      const bal = a.initialBalance || 0;
+      return `<div class="acc-card" data-accid="${a.id}">
+        <span class="acc-icon">${accIcon(a.type)}</span>
+        <div class="acc-info">
+          <span class="acc-name">${esc(a.name)}${a.bank ? `<span class="acc-bank"> · ${esc(a.bank)}</span>` : ''}</span>
+          <span class="acc-type">${esc(a.type)}${bal ? ` · 初始余额 ¥${Number(bal).toLocaleString()}` : ''}</span>
+        </div>
+        <div class="acc-actions">
+          <button class="rowbtn" data-aedit="${a.id}">编辑</button>
+          <button class="rowbtn danger" data-adel="${a.id}">删除</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="acc-list">${list || '<p class="empty-hint">还没有账户，添加一个以开始记账</p>'}</div>
+      <button class="btn btn-sm btn-primary" id="add-acc" style="margin-top:8px;">+ 添加账户</button>`;
+  }
+  function editAccount(id) {
+    const a = id ? (cfg().defaults.accounts || []).find(x => x.id === id) : null;
+    const sel = t => a && a.type === t ? 'selected' : '';
+    PBUI.openModal(`
+      <div class="sheet-grip"></div>
+      <h2>${a ? '编辑账户' : '添加账户'}</h2>
+      <div class="field"><label>类型</label>
+        <select id="a-type">${ACC_TYPES.map(t => `<option value="${t}" ${sel(t)}>${accIcon(t)} ${t}</option>`).join('')}</select></div>
+      <div class="field"><label>名称</label><input type="text" id="a-name" value="${esc(a ? a.name : '')}" placeholder="如 招商银行、零花钱"></div>
+      <div class="field" id="a-bank-row" style="${(a && a.type === '银行卡') ? '' : 'display:none'}"><label>银行（仅银行卡）</label><input type="text" id="a-bank" value="${esc(a && a.bank ? a.bank : '')}" placeholder="如 招商银行"></div>
+      <div class="field"><label>初始余额</label><input type="number" id="a-bal" min="0" step="0.01" value="${esc(a ? a.initialBalance : 0)}"></div>
+      <div class="modal-foot"><button class="btn" onclick="PBUI.closeModal()">取消</button><button class="btn btn-primary" id="a-save">保存</button></div>`, 'modal-sheet');
+    document.getElementById('a-type').onchange = e => {
+      document.getElementById('a-bank-row').style.display = e.target.value === '银行卡' ? '' : 'none';
+    };
+    document.getElementById('a-save').onclick = () => {
+      const name = document.getElementById('a-name').value.trim();
+      if (!name) { PBUI.toast('请输入账户名称'); return; }
+      const type = document.getElementById('a-type').value;
+      const obj = {
+        type, name,
+        bank: type === '银行卡' ? document.getElementById('a-bank').value.trim() || undefined : undefined,
+        initialBalance: parseFloat(document.getElementById('a-bal').value) || 0
+      };
+      if (a) { Object.assign(a, obj); } else { obj.id = PB.uid(); cfg().defaults.accounts.push(obj); }
+      save(); PBUI.closeModal(); render();
+    };
+  }
+  function bindAccounts() {
+    const add = document.getElementById('add-acc'); if (add) add.onclick = () => editAccount(null);
+    document.querySelectorAll('[data-aedit]').forEach(b => b.onclick = () => editAccount(b.dataset.aedit));
+    document.querySelectorAll('[data-adel]').forEach(b => b.onclick = () => {
+      if (!confirm('确定删除该账户？（关联的记账记录不受影响）')) return;
+      const accs = cfg().defaults.accounts; const idx = accs.findIndex(a => a.id === b.dataset.adel);
+      if (idx >= 0) accs.splice(idx, 1); save(); render();
+    });
+  }
+  // ---- 账户管理 end ----
+
   function modulesHTML() {
     const ms = cfg().modules.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
     return ms.map((m, i) => `
@@ -128,7 +192,7 @@
         <div class="field"><label>任务默认标签</label><div id="tags-task">${tagsHTML(c.defaults.taskTags)}</div></div>
         <div class="field"><label>习惯打卡项</label><div id="tags-habit">${tagsHTML(c.defaults.habitItems)}</div></div>
         <div class="field"><label>财政分类</label><div id="tags-fin">${tagsHTML(c.defaults.financeCategories)}</div></div>
-        <div class="field"><label>财政账户</label><div id="tags-acc">${tagsHTML(c.defaults.financeAccounts)}</div></div>
+        <div class="field"><label>财政账户</label><div id="tags-acc">${accountsHTML()}</div></div>
         <div class="field"><label>存储方式</label><div id="tags-save">${tagsHTML(c.defaults.savingsMethods)}</div></div>
       </div>
 
@@ -154,7 +218,7 @@
 
       <div class="cfg-section">
         <h3>关于</h3>
-        <p class="hint">个人工作台 v2.3 · 纯前端 + GitHub 加密云同步<br>本地加密数据体积：约 ${storageSize()}</p>
+        <p class="hint">个人工作台 v2.4 · 纯前端 + GitHub 加密云同步<br>本地加密数据体积：约 ${storageSize()}</p>
       </div>
     `;
     bind();
@@ -187,7 +251,7 @@
     bindTags('tags-task', c.defaults.taskTags);
     bindTags('tags-habit', c.defaults.habitItems);
     bindTags('tags-fin', c.defaults.financeCategories);
-    bindTags('tags-acc', c.defaults.financeAccounts);
+    bindAccounts();
     bindTags('tags-save', c.defaults.savingsMethods);
     document.querySelectorAll('input[data-card]').forEach(cb => cb.onchange = () => {
       const k = cb.dataset.card; const arr = c.dashboard.showCards;

@@ -1,4 +1,4 @@
-# 个人工作台 · 换机迁移与部署指南（纯前端 v2.3）
+# 个人工作台 · 换机迁移与部署指南（纯前端 v2.4）
 
 本包用于把「个人工作台」整套代码、文档与（可选的）数据搬到另一台电脑，并重新部署。
 
@@ -6,7 +6,7 @@
 
 ## 一、这个包里有什么
 
-- **C 端（手机 App）全部源代码**：`index.html`、`planner.html`、`snippets.html`、`finance.html`、`profile.html`、`settings.html`，以及 `assets/`（样式 + 脚本）。
+- **C 端（手机 App）全部源代码**：`index.html`、`planner.html`、`finance.html`、`profile.html`、`settings.html`，以及 `assets/`（样式 + 脚本）。
 - **B 端（管理控制台）源代码**：`admin/`（login.html、index.html、assets）。
 - **PWA / 资源**：`sw.js`、`manifest.webmanifest`、`icon.svg`、`.nojekyll`。
 - **文档**：`README.md`、`PRD.md`、`技术栈文档.md`、本指南。
@@ -19,7 +19,7 @@
 
 ## 二、⚠️ 最重要：代码包 ≠ 你的数据
 
-你的 **C 端任务/笔记/知识库/访问密码/主题色/模块配置** 默认加密存放在**你当前浏览器的 localStorage** 里（整体加密成一个 blob），也**可能已上传到你的 GitHub 仓库**（若开启了云同步）。它们**不在这堆文件里**。
+你的 **C 端任务/笔记/访问密码/主题色/模块配置** 默认加密存放在**你当前浏览器的 localStorage** 里（整体加密成一个 blob），也**可能已上传到你的 GitHub 仓库**（若开启了云同步）。它们**不在这堆文件里**。
 
 所以：
 - 只拷贝代码 → 换机后打开是「空工作台」，需重新设密码（或登录同一 GitHub 仓库拉取同步）。
@@ -95,7 +95,7 @@ v2.0 用后端账号 + `sync/blob` 做云同步；v2.1 移除后端，改为**�
   A：数据不在代码包里。按「二」用 GitHub 云同步或导出/导入恢复。
 
 - **Q：线上看到的是旧样式？**
-  A：旧 Service Worker 缓存。关掉标签页重开一次，或清一下该站点的 Service Worker 即可加载新版（缓存版本已升到 `pwb-v4`）。
+  A：旧 Service Worker 缓存。关掉标签页重开一次，或清一下该站点的 Service Worker 即可加载新版（缓存版本已升到 `pwb-v6`）。
 
 - **Q：管理台登录不上？**
   A：管理台与 C 端共用同一访问密码，请用 C 端设置的那个密码；首次在管理台打开即设置密码。
